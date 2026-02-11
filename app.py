@@ -79,7 +79,7 @@ st.markdown('<p class="big-title">🎙️ AI语音简报助手</p>', unsafe_allo
 st.markdown('<p class="subtitle">语音直接转文字，自动生成简报</p>', unsafe_allow_html=True)
 
 # ========== API密钥输入（主界面，iOS优化）==========
-api_key = st.secrets.get("SILICONFLOW_API_KEY", "")
+api_key = st.session_state.get("api_key", "")
 
 if not api_key:
     st.warning("⚠️ 首次使用需要输入 API 密钥")
@@ -222,11 +222,11 @@ with col1:
 with col2:
     st.subheader("📝 编辑与生成")
     
-briefing_type = st.selectbox(
-    "简报类型",
-    ["工作日报", "会议纪要", "学习笔记", "新闻摘要"],
-    key="briefing_type"
-)
+    briefing_type = st.selectbox(
+        "简报类型",
+        ["工作日报", "会议纪要", "学习笔记", "新闻摘要"],
+        key="briefing_type"
+    )
     
     default_text = st.session_state.get("transcribed_text", "")
     
@@ -296,7 +296,4 @@ briefing_type = st.selectbox(
         )
 
 st.divider()
-
 st.caption("Made with ❤️ | PWA版 v1.0.0 - 像App一样使用")
-
-
