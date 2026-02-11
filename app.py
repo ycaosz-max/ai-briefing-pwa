@@ -222,11 +222,12 @@ with col1:
 with col2:
     st.subheader("📝 编辑与生成")
     
-    briefing_type = st.selectbox(
-        "简报类型",
-        ["工作日报", "会议纪要", "学习笔记", "新闻摘要"],
-        key="briefing_type"
-    )
+briefing_type = st.selectbox(
+    "简报类型",
+    ["工作日报", "会议纪要", "学习笔记", "新闻摘要"],
+    index=1,  # 默认选中“会议纪要”
+    key="briefing_type"
+)
     
     default_text = st.session_state.get("transcribed_text", "")
     
@@ -298,3 +299,4 @@ with col2:
 st.divider()
 
 st.caption("Made with ❤️ | PWA版 v1.0.0 - 像App一样使用")
+
