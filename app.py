@@ -278,12 +278,13 @@ hr {
 st.markdown('<p class="big-title">🎙️ AI语音简报助手</p>', unsafe_allow_html=True)
 st.markdown('<p class="subtitle">语音直接转文字，自动生成简报</p>', unsafe_allow_html=True)
 
-# ========== API 密钥管理（修复版）==========
-# 优先从 secrets 读取，其次从 session_state 读取
-api_key = st.secrets.get("SILICONFLOW_API_KEY", "") or st.session_state.get("api_key", "")
+# ========== API 密钥管理 ==========
+# 只从 secrets 读取，简化逻辑
+api_key = st.secrets.get("SILICONFLOW_API_KEY", "")
 
+# 如果没有配置 API Key，显示手动输入界面
 if not api_key:
-    st.warning("⚠️ 首次使用需要输入 API 密钥")
+    st.warning("⚠️ 未检测到 API 密钥，请手动输入")
     
     with st.expander("🔑 点击此处输入 API 密钥", expanded=True):
         st.markdown("""
@@ -294,36 +295,33 @@ if not api_key:
         4. 复制到下方输入框
         """)
         
-        # 使用 key 参数确保组件状态持久化
         api_input = st.text_input(
             "API 密钥",
-            value=st.session_state.get("temp_api_key", ""),
+            value="",
             type="password",
             placeholder="sk-xxxxxxxxxxxxxxxx",
-            key="api_key_input_main",
+            key="api_key_input",
             help="密钥以 sk- 开头"
         )
         
-        # 保存临时值到 session_state，避免输入丢失
-        if api_input:
-            st.session_state.temp_api_key = api_input
-        
         col1, col2 = st.columns([1, 3])
         with col1:
-            if st.button("✅ 确认并保存", type="primary", key="save_api_key_btn"):
+            if st.button("✅ 确认并进入", type="primary", key="save_api_key"):
                 if api_input and api_input.startswith("sk-"):
-                    # 保存到 session_state
-                    st.session_state.api_key = api_input
-                    # 清除临时值
-                    if "temp_api_key" in st.session_state:
-                        del st.session_state.temp_api_key
-                    st.success("✅ API 密钥已保存！")
+                    # 验证密钥有效性（可选：调用一个简单的API测试）
+                    api_key = api_input
+                    st.success("✅ 密钥已设置，正在进入...")
+                    # 使用 experimental_set_query_params 强制刷新或继续执行
+                    st.session_state.manual_api_key = api_input
                     st.rerun()
                 else:
                     st.error("❌ 请输入正确的 API 密钥（以 sk- 开头）")
     
-    # 关键：使用 st.stop() 阻止继续执行
-    st.stop()
+    # 检查是否刚刚手动输入了密钥
+    if "manual_api_key" in st.session_state:
+        api_key = st.session_state.manual_api_key
+    else:
+        st.stop()
 
 # ========== 语音转文字函数 ==========
 def transcribe_audio(audio_bytes, api_key):
@@ -544,13 +542,5 @@ with col2:
             mime="text/plain"
         )
 
-# 添加退出/更换密钥按钮
 st.divider()
-col_footer1, col_footer2 = st.columns([6, 1])
-with col_footer2:
-    if st.button("🚪 退出登录", key="logout_btn"):
-        if "api_key" in st.session_state:
-            del st.session_state.api_key
-        st.rerun()
-
 st.caption("Made with ❤️ | PWA版 v2.3.0 - 像App一样使用")
