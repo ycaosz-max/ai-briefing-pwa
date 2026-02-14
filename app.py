@@ -274,16 +274,43 @@ hr {
 </style>
 """, unsafe_allow_html=True)
 
+# ========== 关键修复：登录状态管理 ==========
+# 初始化 session state（必须在最前面）
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+if 'api_key' not in st.session_state:
+    st.session_state.api_key = ""
+
 # ========== 标题 ==========
 st.markdown('<p class="big-title">🎙️ AI语音简报助手</p>', unsafe_allow_html=True)
 st.markdown('<p class="subtitle">语音直接转文字，自动生成简报</p>', unsafe_allow_html=True)
 
-# ========== API 密钥管理 ==========
-# 只从 secrets 读取，简化逻辑
-api_key = st.secrets.get("SILICONFLOW_API_KEY", "")
+# ========== API 密钥管理（修复版）==========
+def check_api_key():
+    """检查是否有可用的 API Key"""
+    # 1. 首先检查 session state（手动输入的）
+    if st.session_state.get('api_key'):
+        return st.session_state.api_key
+    
+    # 2. 然后检查 secrets（预配置的）
+    secret_key = st.secrets.get("SILICONFLOW_API_KEY", "")
+    if secret_key:
+        # 自动保存到 session state，避免重复读取 secrets
+        st.session_state.api_key = secret_key
+        st.session_state.authenticated = True
+        return secret_key
+    
+    return ""
 
-# 如果没有配置 API Key，显示手动输入界面
-if not api_key:
+# 获取 API Key
+api_key = check_api_key()
+
+# 如果已认证，直接显示主界面
+if st.session_state.authenticated and api_key:
+    pass  # 继续执行主界面代码
+
+# 如果未认证且没有 API Key，显示登录界面
+elif not api_key:
     st.warning("⚠️ 未检测到 API 密钥，请手动输入")
     
     with st.expander("🔑 点击此处输入 API 密钥", expanded=True):
@@ -308,20 +335,16 @@ if not api_key:
         with col1:
             if st.button("✅ 确认并进入", type="primary", key="save_api_key"):
                 if api_input and api_input.startswith("sk-"):
-                    # 验证密钥有效性（可选：调用一个简单的API测试）
-                    api_key = api_input
-                    st.success("✅ 密钥已设置，正在进入...")
-                    # 使用 experimental_set_query_params 强制刷新或继续执行
-                    st.session_state.manual_api_key = api_input
+                    # 保存到 session state
+                    st.session_state.api_key = api_input
+                    st.session_state.authenticated = True
+                    st.success("✅ 登录成功！正在进入主页面...")
                     st.rerun()
                 else:
                     st.error("❌ 请输入正确的 API 密钥（以 sk- 开头）")
     
-    # 检查是否刚刚手动输入了密钥
-    if "manual_api_key" in st.session_state:
-        api_key = st.session_state.manual_api_key
-    else:
-        st.stop()
+    # 阻止继续执行主界面代码
+    st.stop()
 
 # ========== 语音转文字函数 ==========
 def transcribe_audio(audio_bytes, api_key):
