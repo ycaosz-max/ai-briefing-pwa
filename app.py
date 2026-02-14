@@ -15,8 +15,8 @@ st.markdown("""
 <meta name="apple-mobile-web-app-title" content="AI简报">
 
 <!-- Emoji图标 -->
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg   ' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎙️</text></svg>">
-<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg   ' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎙️</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎙️</text></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎙️</text></svg>">
 
 <!-- 主题色适配 -->
 <meta name="theme-color" content="#FF6B6B" media="(prefers-color-scheme: light)">
@@ -278,8 +278,9 @@ hr {
 st.markdown('<p class="big-title">🎙️ AI语音简报助手</p>', unsafe_allow_html=True)
 st.markdown('<p class="subtitle">语音直接转文字，自动生成简报</p>', unsafe_allow_html=True)
 
-# ========== API 密钥管理（主界面） ==========
-api_key = st.secrets.get("SILICONFLOW_API_KEY", "")
+# ========== API 密钥管理（修复版）==========
+# 优先从 secrets 读取，其次从 session_state 读取
+api_key = st.secrets.get("SILICONFLOW_API_KEY", "") or st.session_state.get("api_key", "")
 
 if not api_key:
     st.warning("⚠️ 首次使用需要输入 API 密钥")
@@ -287,34 +288,44 @@ if not api_key:
     with st.expander("🔑 点击此处输入 API 密钥", expanded=True):
         st.markdown("""
         **获取步骤：**
-        1. 访问 [硅基流动](https://cloud.siliconflow.cn/i/nZqCjymq    )
+        1. 访问 [硅基流动](https://cloud.siliconflow.cn/i/nZqCjymq)
         2. 注册完成实名认证
         3. 创建您的API密钥
         4. 复制到下方输入框
         """)
         
+        # 使用 key 参数确保组件状态持久化
         api_input = st.text_input(
             "API 密钥",
-            value="",
+            value=st.session_state.get("temp_api_key", ""),
             type="password",
             placeholder="sk-xxxxxxxxxxxxxxxx",
-            key="api_key_input",
+            key="api_key_input_main",
             help="密钥以 sk- 开头"
         )
         
+        # 保存临时值到 session_state，避免输入丢失
+        if api_input:
+            st.session_state.temp_api_key = api_input
+        
         col1, col2 = st.columns([1, 3])
         with col1:
-            if st.button("✅ 确认并保存", type="primary", key="save_api_key"):
+            if st.button("✅ 确认并保存", type="primary", key="save_api_key_btn"):
                 if api_input and api_input.startswith("sk-"):
+                    # 保存到 session_state
                     st.session_state.api_key = api_input
+                    # 清除临时值
+                    if "temp_api_key" in st.session_state:
+                        del st.session_state.temp_api_key
                     st.success("✅ API 密钥已保存！")
                     st.rerun()
                 else:
                     st.error("❌ 请输入正确的 API 密钥（以 sk- 开头）")
     
+    # 关键：使用 st.stop() 阻止继续执行
     st.stop()
 
-# ========== 语音转文字函数（修复版） ==========
+# ========== 语音转文字函数 ==========
 def transcribe_audio(audio_bytes, api_key):
     tmp_path = None
     try:
@@ -331,41 +342,29 @@ def transcribe_audio(audio_bytes, api_key):
             transcription = client.audio.transcriptions.create(
                 model="FunAudioLLM/SenseVoiceSmall",
                 file=audio,
-                response_format="text"
+                language="zh"
             )
             
-            # 处理返回结果，去除 "text" 污染
+            # 处理返回结果
             result_text = ""
             
-            # 情况1：如果是对象，获取 text 属性
             if hasattr(transcription, 'text'):
                 result_text = transcription.text
-            
-            # 情况2：如果是字符串
             elif isinstance(transcription, str):
                 result_text = transcription.strip()
-                
-                # 尝试解析 JSON 格式 {"text": "..."}
                 if result_text.startswith('{') and result_text.endswith('}'):
                     try:
                         json_data = json.loads(result_text)
                         if 'text' in json_data:
                             result_text = json_data['text']
                     except json.JSONDecodeError:
-                        pass  # 不是有效 JSON，保持原样
-                
-                # 去除 text= 前缀
+                        pass
                 elif result_text.lower().startswith('text='):
                     result_text = result_text[5:]
-            
-            # 情况3：其他类型，转为字符串
             else:
                 result_text = str(transcription)
             
-            # 最终清理
             result_text = result_text.strip().strip("'\"").strip()
-            
-            # 如果结果就是 "text" 这个词，返回空
             if result_text.lower() == 'text':
                 result_text = ""
         
@@ -413,7 +412,6 @@ with col1:
                 result = transcribe_audio(audio["bytes"], api_key)
                 
                 if result["success"]:
-                    # 检查清理后的文本是否有效
                     clean_text = result["text"]
                     if not clean_text or clean_text.strip() == "":
                         st.warning("⚠️ 转写结果为空，请检查录音是否清晰")
@@ -546,5 +544,13 @@ with col2:
             mime="text/plain"
         )
 
+# 添加退出/更换密钥按钮
 st.divider()
+col_footer1, col_footer2 = st.columns([6, 1])
+with col_footer2:
+    if st.button("🚪 退出登录", key="logout_btn"):
+        if "api_key" in st.session_state:
+            del st.session_state.api_key
+        st.rerun()
+
 st.caption("Made with ❤️ | PWA版 v2.3.0 - 像App一样使用")
