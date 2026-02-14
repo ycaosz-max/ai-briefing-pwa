@@ -1,10 +1,12 @@
-# AI简报小助手 - PWA版 v1.0.0
+# AI简报小助手 - PWA版 v1.0.1
 # 基于语音版v2.1.1 iOS优化版，添加PWA支持
+# 修复：API密钥管理逻辑，支持 st.secrets 并修复切换报错
 
 import streamlit as st
 from openai import OpenAI
 import os
 import tempfile
+import json
 
 # ========== PWA配置（必须在最前面）==========
 st.markdown("""
@@ -78,11 +80,13 @@ st.markdown("""
 st.markdown('<p class="big-title">🎙️ AI语音简报助手</p>', unsafe_allow_html=True)
 st.markdown('<p class="subtitle">语音直接转文字，自动生成简报</p>', unsafe_allow_html=True)
 
-# ========== API密钥输入（主界面，iOS优化）==========
-api_key = st.secrets.get("SILICONFLOW_API_KEY", "")
+# ========== API密钥管理逻辑 ==========
+# 1. 优先检查 session_state（用户手动输入的）
+# 2. 其次检查 st.secrets（环境变量配置的）
+api_key = st.session_state.get("api_key") or st.secrets.get("SILICONFLOW_API_KEY")
 
 if not api_key:
-    st.warning("⚠️ 首次使用需要输入 API 密钥")
+    st.warning("⚠️ 需要配置 API 密钥才能启动炼金术")
     
     with st.expander("🔑 点击此处输入 API 密钥", expanded=True):
         st.markdown("""
@@ -116,8 +120,12 @@ with st.sidebar:
     st.header("⚙️ 设置")
     st.success("✅ API 已配置")
     
-    if st.button("🔄 更换 API 密钥"):
-        del st.session_state.api_key
+    # 只有当用户手动输入了密钥（存在于 session_state）时，才显示更换按钮
+    # 如果是 st.secrets 提供的，建议在部署平台修改 Secrets
+    if st.button("🔄 更换/清除当前密钥"):
+        if "api_key" in st.session_state:
+            del st.session_state.api_key
+        st.info("已清除会话密钥，将尝试使用默认配置或重新输入。")
         st.rerun()
     
     st.divider()
@@ -140,7 +148,17 @@ def transcribe_audio(audio_bytes, api_key):
             )
         
         os.unlink(tmp_path)
-        return {"success": True, "text": transcription}
+        
+        # 优化：去除可能出现的 {"text": "..."} 冗余格式
+        clean_text = str(transcription)
+        if clean_text.startswith('{') and '"text"' in clean_text:
+            try:
+                data = json.loads(clean_text)
+                clean_text = data.get("text", clean_text)
+            except:
+                pass
+        
+        return {"success": True, "text": clean_text}
         
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -297,5 +315,4 @@ with col2:
 
 st.divider()
 
-st.caption("Made with ❤️ | PWA版 v1.0.0 - 像App一样使用")
-
+st.caption("Made with ❤️ | PWA版 v1.0.1 - 像App一样使用")
