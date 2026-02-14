@@ -4,8 +4,53 @@ import os
 import tempfile
 import json
 
+# ========== v2.3.1 升级：版本号与配置集中管理 ==========
+VERSION = "2.3.1"
+
+CONFIG = {
+    "version": VERSION,
+    "api": {
+        "base_url": "https://api.siliconflow.cn/v1",
+        "timeout": 60
+    },
+    "models": {
+        "transcribe": "FunAudioLLM/SenseVoiceSmall",
+        "generate": "deepseek-ai/DeepSeek-V3"
+    },
+    "theme": {
+        "light": {
+            "bg_primary": "#ffffff",
+            "bg_secondary": "#f0f2f6",
+            "bg_card": "#ffffff",
+            "text_primary": "#1f1f1f",
+            "text_secondary": "#666666",
+            "border_color": "#e0e0e0",
+            "accent_color": "#FF6B6B",
+            "accent_hover": "#FF5252",
+            "shadow": "rgba(255, 107, 107, 0.15)",
+            "input_bg": "#ffffff",
+            "input_text": "#1f1f1f",
+            "button_text": "#ffffff"
+        },
+        "dark": {
+            "bg_primary": "#000000",
+            "bg_secondary": "#1c1c1e",
+            "bg_card": "#2c2c2e",
+            "text_primary": "#ffffff",
+            "text_secondary": "#8e8e93",
+            "border_color": "#38383a",
+            "accent_color": "#FF8585",
+            "accent_hover": "#FF6B6B",
+            "shadow": "rgba(255, 133, 133, 0.15)",
+            "input_bg": "#1c1c1e",
+            "input_text": "#ffffff",
+            "button_text": "#ffffff"
+        }
+    }
+}
+
 # ========== PWA配置（必须在最前面）==========
-st.markdown("""
+st.markdown(f"""
 <!-- PWA Manifest -->
 <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjogIkFJ6K+F6K665YWs5a+DIiwgInNob3J0X25hbWUiOiAiQUlTVCIsICJzdGFydF91cmwiOiAiLiIsICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLCAiYmFja2dyb3VuZF9jb2xvciI6ICIjRkY2QjZCIiwgInRoZW1lX2NvbG9yIjogIiNGRjZCNkIiLCAiaWNvbnMiOiBbeyJzcmMiOiAiZGF0YTppbWFnZS9zdmcreG1sLCUzQ3N2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAxMDAgMTAwJyUzRSUzQ3RleHQgeT0nLjllbScgZm9udC1zaXplPSc5MCclM0Xwn5OeJTNFL3RleHQlM0UlM0Mvc3ZnJTNFIn1dfQ==">
 
@@ -19,17 +64,17 @@ st.markdown("""
 <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎙️</text></svg>">
 
 <!-- 主题色适配 -->
-<meta name="theme-color" content="#FF6B6B" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#1c1c1e" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="{CONFIG['theme']['light']['accent_color']}" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="{CONFIG['theme']['dark']['bg_secondary']}" media="(prefers-color-scheme: dark)">
 
 <!-- Service Worker注册 -->
 <script>
-const swCode = `self.addEventListener('install', e => { self.skipWaiting(); }); self.addEventListener('activate', e => { self.clients.claim(); }); self.addEventListener('fetch', e => { e.respondWith(fetch(e.request).catch(() => new Response('离线模式：请检查网络连接', {headers: {'Content-Type': 'text/html'}}))); });`;
-if ('serviceWorker' in navigator) {
+const swCode = `self.addEventListener('install', e => {{ self.skipWaiting(); }}); self.addEventListener('activate', e => {{ self.clients.claim(); }}); self.addEventListener('fetch', e => {{ e.respondWith(fetch(e.request).catch(() => new Response('离线模式：请检查网络连接', {{headers: {{'Content-Type': 'text/html'}}}}))); }});`;
+if ('serviceWorker' in navigator) {{
   navigator.serviceWorker.register('data:text/javascript;base64,' + btoa(swCode))
     .then(reg => console.log('SW注册成功'))
     .catch(err => console.log('SW注册失败', err));
-}
+}}
 </script>
 """, unsafe_allow_html=True)
 
@@ -39,100 +84,96 @@ st.set_page_config(
     page_icon="🎙️"
 )
 
-# ========== iOS 暗黑/明亮模式自动切换样式 ==========
-st.markdown("""
+# ========== v2.3.1 升级：CSS 变量引用 CONFIG ==========
+st.markdown(f"""
 <style>
 /* ========== 基础变量定义 ========== */
-:root {
-    /* 明亮模式默认 */
-    --bg-primary: #ffffff;
-    --bg-secondary: #f0f2f6;
-    --bg-card: #ffffff;
-    --text-primary: #1f1f1f;
-    --text-secondary: #666666;
-    --border-color: #e0e0e0;
-    --accent-color: #FF6B6B;
-    --accent-hover: #FF5252;
-    --shadow: rgba(255, 107, 107, 0.15);
-    --input-bg: #ffffff;
-    --input-text: #1f1f1f;
-    --button-text: #ffffff;
-}
+:root {{
+    --bg-primary: {CONFIG['theme']['light']['bg_primary']};
+    --bg-secondary: {CONFIG['theme']['light']['bg_secondary']};
+    --bg-card: {CONFIG['theme']['light']['bg_card']};
+    --text-primary: {CONFIG['theme']['light']['text_primary']};
+    --text-secondary: {CONFIG['theme']['light']['text_secondary']};
+    --border-color: {CONFIG['theme']['light']['border_color']};
+    --accent-color: {CONFIG['theme']['light']['accent_color']};
+    --accent-hover: {CONFIG['theme']['light']['accent_hover']};
+    --shadow: {CONFIG['theme']['light']['shadow']};
+    --input-bg: {CONFIG['theme']['light']['input_bg']};
+    --input-text: {CONFIG['theme']['light']['input_text']};
+    --button-text: {CONFIG['theme']['light']['button_text']};
+}}
 
 /* ========== iOS 暗黑模式检测 ========== */
-@media (prefers-color-scheme: dark) {
-    :root {
-        --bg-primary: #000000;
-        --bg-secondary: #1c1c1e;
-        --bg-card: #2c2c2e;
-        --text-primary: #ffffff;
-        --text-secondary: #8e8e93;
-        --border-color: #38383a;
-        --accent-color: #FF8585;
-        --accent-hover: #FF6B6B;
-        --shadow: rgba(255, 133, 133, 0.15);
-        --input-bg: #1c1c1e;
-        --input-text: #ffffff;
-        --button-text: #ffffff;
-    }
+@media (prefers-color-scheme: dark) {{
+    :root {{
+        --bg-primary: {CONFIG['theme']['dark']['bg_primary']};
+        --bg-secondary: {CONFIG['theme']['dark']['bg_secondary']};
+        --bg-card: {CONFIG['theme']['dark']['bg_card']};
+        --text-primary: {CONFIG['theme']['dark']['text_primary']};
+        --text-secondary: {CONFIG['theme']['dark']['text_secondary']};
+        --border-color: {CONFIG['theme']['dark']['border_color']};
+        --accent-color: {CONFIG['theme']['dark']['accent_color']};
+        --accent-hover: {CONFIG['theme']['dark']['accent_hover']};
+        --shadow: {CONFIG['theme']['dark']['shadow']};
+        --input-bg: {CONFIG['theme']['dark']['input_bg']};
+        --input-text: {CONFIG['theme']['dark']['input_text']};
+        --button-text: {CONFIG['theme']['dark']['button_text']};
+    }}
     
-    /* Streamlit 暗黑模式覆盖 */
-    .stApp {
+    .stApp {{
         background-color: var(--bg-primary) !important;
-    }
+    }}
     
-    .stTextInput input, .stTextArea textarea {
+    .stTextInput input, .stTextArea textarea {{
         background-color: var(--input-bg) !important;
         color: var(--input-text) !important;
         border-color: var(--border-color) !important;
-    }
+    }}
     
-    .stSelectbox > div > div {
+    .stSelectbox > div > div {{
         background-color: var(--bg-card) !important;
         color: var(--text-primary) !important;
-    }
+    }}
     
-    .stExpander {
+    .stExpander {{
         background-color: var(--bg-card) !important;
         border-color: var(--border-color) !important;
-    }
+    }}
     
-    .stMarkdown {
+    .stMarkdown {{
         color: var(--text-primary) !important;
-    }
-}
+    }}
+}}
 
 /* ========== iOS 基础修复 ========== */
-* {
+* {{
     -webkit-tap-highlight-color: transparent;
     -webkit-touch-callout: none;
-}
+}}
 
 /* ========== 全局样式应用 ========== */
-.stApp {
+.stApp {{
     background-color: var(--bg-primary);
     color: var(--text-primary);
     transition: background-color 0.3s ease, color 0.3s ease;
-}
+}}
 
-/* 标题样式 */
-.big-title {
+.big-title {{
     font-size: 32px;
     font-weight: bold;
     color: var(--accent-color);
     margin-bottom: 8px;
     transition: color 0.3s ease;
-}
+}}
 
-.subtitle {
+.subtitle {{
     font-size: 16px;
     color: var(--text-secondary);
     margin-bottom: 24px;
     transition: color 0.3s ease;
-}
+}}
 
-/* 输入框样式 - 自动适应主题 */
-.stTextInput input, .stTextArea textarea {
+.stTextInput input, .stTextArea textarea {{
     -webkit-appearance: none !important;
     -webkit-user-select: text !important;
     user-select: text !important;
@@ -144,17 +185,15 @@ st.markdown("""
     color: var(--input-text);
     border: 1px solid var(--border-color);
     transition: all 0.3s ease;
-}
+}}
 
-/* 输入框焦点样式 */
-.stTextInput input:focus, .stTextArea textarea:focus {
+.stTextInput input:focus, .stTextArea textarea:focus {{
     outline: none !important;
     border-color: var(--accent-color) !important;
     box-shadow: 0 0 0 3px var(--shadow) !important;
-}
+}}
 
-/* 按钮样式 - 高对比度 */
-.stButton button {
+.stButton button {{
     -webkit-appearance: none;
     touch-action: manipulation;
     -webkit-border-radius: 10px;
@@ -164,118 +203,98 @@ st.markdown("""
     border: none !important;
     font-weight: 600;
     transition: all 0.2s ease;
-}
+}}
 
-.stButton button:hover {
+.stButton button:hover {{
     transform: translateY(-1px);
     box-shadow: 0 4px 12px var(--shadow);
-}
+}}
 
-.stButton button:active {
+.stButton button:active {{
     transform: translateY(0);
-}
+}}
 
-/* 卡片/容器样式 */
-.stExpander {
+.stExpander {{
     background-color: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: 12px;
     overflow: hidden;
     transition: all 0.3s ease;
-}
+}}
 
-/* 信息框样式 - 暗黑模式适配 */
-.stAlert {
+.stAlert {{
     background-color: var(--bg-card) !important;
     border-color: var(--border-color) !important;
     color: var(--text-primary) !important;
-}
+}}
 
-.stInfo {
+.stInfo {{
     background-color: rgba(255, 107, 107, 0.1) !important;
     border-left-color: var(--accent-color) !important;
-}
+}}
 
-.stSuccess {
+.stSuccess {{
     background-color: rgba(48, 209, 88, 0.1) !important;
     border-left-color: #30d158 !important;
-}
+}}
 
-.stWarning {
+.stWarning {{
     background-color: rgba(255, 159, 10, 0.1) !important;
     border-left-color: #ff9f0a !important;
-}
+}}
 
-.stError {
+.stError {{
     background-color: rgba(255, 69, 58, 0.1) !important;
     border-left-color: #ff453a !important;
-}
+}}
 
-/* 文件上传区域 */
-.stFileUploader > div > div {
+.stFileUploader > div > div {{
     background-color: var(--bg-secondary) !important;
     border-color: var(--border-color) !important;
     color: var(--text-primary) !important;
-}
+}}
 
-/* 分割线 */
-hr {
+hr {{
     border-color: var(--border-color) !important;
-}
+}}
 
-/* 下载按钮 */
-.stDownloadButton button {
+.stDownloadButton button {{
     background-color: var(--bg-card) !important;
     color: var(--accent-color) !important;
     border: 2px solid var(--accent-color) !important;
-}
+}}
 
-.stDownloadButton button:hover {
+.stDownloadButton button:hover {{
     background-color: var(--accent-color) !important;
     color: var(--button-text) !important;
-}
+}}
 
-/* 选择框样式 */
-.stSelectbox > div > div {
+.stSelectbox > div > div {{
     background-color: var(--bg-card);
     border-color: var(--border-color) !important;
     color: var(--text-primary);
     border-radius: 10px;
-}
+}}
 
-/* PWA全屏模式优化 */
-@media (display-mode: standalone) {
-    .main .block-container { padding-top: 2rem; }
-    .big-title { margin-top: 10px; }
-}
+@media (display-mode: standalone) {{
+    .main .block-container {{ padding-top: 2rem; }}
+    .big-title {{ margin-top: 10px; }}
+}}
 
-/* 移动端适配 */
-@media (max-width: 768px) {
-    .big-title { 
-        font-size: 26px !important; 
-    }
-    .subtitle { 
-        font-size: 14px !important; 
-    }
-    .main .block-container { 
-        padding: 1rem; 
-    }
-    
-    /* iOS 安全区域适配 */
-    .stApp {
-        padding-bottom: env(safe-area-inset-bottom);
-    }
-}
+@media (max-width: 768px) {{
+    .big-title {{ font-size: 26px !important; }}
+    .subtitle {{ font-size: 14px !important; }}
+    .main .block-container {{ padding: 1rem; }}
+    .stApp {{ padding-bottom: env(safe-area-inset-bottom); }}
+}}
 
-/* 平滑过渡动画 */
-* {
+* {{
     transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
-}
+}}
 </style>
 """, unsafe_allow_html=True)
 
-# ========== 关键修复：登录状态管理 ==========
-# 初始化 session state（必须在最前面）
+# ========== 初始化 session state ==========
 if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
 if 'api_key' not in st.session_state:
@@ -285,31 +304,24 @@ if 'api_key' not in st.session_state:
 st.markdown('<p class="big-title">🎙️ AI语音简报助手</p>', unsafe_allow_html=True)
 st.markdown('<p class="subtitle">语音直接转文字，自动生成简报</p>', unsafe_allow_html=True)
 
-# ========== API 密钥管理（修复版）==========
+# ========== API 密钥管理 ==========
 def check_api_key():
     """检查是否有可用的 API Key"""
-    # 1. 首先检查 session state（手动输入的）
     if st.session_state.get('api_key'):
         return st.session_state.api_key
     
-    # 2. 然后检查 secrets（预配置的）
     secret_key = st.secrets.get("SILICONFLOW_API_KEY", "")
     if secret_key:
-        # 自动保存到 session state，避免重复读取 secrets
         st.session_state.api_key = secret_key
         st.session_state.authenticated = True
         return secret_key
     
     return ""
 
-# 获取 API Key
 api_key = check_api_key()
 
-# 如果已认证，直接显示主界面
 if st.session_state.authenticated and api_key:
-    pass  # 继续执行主界面代码
-
-# 如果未认证且没有 API Key，显示登录界面
+    pass
 elif not api_key:
     st.warning("⚠️ 未检测到 API 密钥，请手动输入")
     
@@ -335,7 +347,6 @@ elif not api_key:
         with col1:
             if st.button("✅ 确认并进入", type="primary", key="save_api_key"):
                 if api_input and api_input.startswith("sk-"):
-                    # 保存到 session state
                     st.session_state.api_key = api_input
                     st.session_state.authenticated = True
                     st.success("✅ 登录成功！正在进入主页面...")
@@ -343,17 +354,63 @@ elif not api_key:
                 else:
                     st.error("❌ 请输入正确的 API 密钥（以 sk- 开头）")
     
-    # 阻止继续执行主界面代码
     st.stop()
 
-# ========== 语音转文字函数 ==========
-def transcribe_audio(audio_bytes, api_key):
+# ========== v2.3.1 升级：OpenAI 客户端初始化函数（无缓存） ==========
+def get_openai_client(api_key: str) -> OpenAI:
+    """获取 OpenAI 客户端（保守方案：每次创建新实例）"""
+    return OpenAI(
+        api_key=api_key,
+        base_url=CONFIG['api']['base_url'],
+        timeout=CONFIG['api']['timeout']
+    )
+
+# ========== v2.3.1 升级：错误分类处理 ==========
+def classify_error(error: Exception) -> dict:
+    """分类错误类型"""
+    error_str = str(error).lower()
+    
+    if any(kw in error_str for kw in ['401', 'unauthorized', 'invalid api key', 'authentication']):
+        return {
+            "type": "auth",
+            "title": "🔐 认证失败",
+            "message": "API 密钥无效或已过期，请检查密钥是否正确",
+            "action": "更换密钥"
+        }
+    elif any(kw in error_str for kw in ['connection', 'timeout', 'network', 'dns', '503']):
+        return {
+            "type": "network",
+            "title": "📡 网络错误",
+            "message": "无法连接到服务器，请检查网络连接或稍后重试",
+            "action": "重试"
+        }
+    elif any(kw in error_str for kw in ['400', 'bad request', 'invalid', 'format']):
+        return {
+            "type": "format",
+            "title": "⚠️ 请求格式错误",
+            "message": "音频格式不支持或文件损坏，请尝试其他文件",
+            "action": "更换文件"
+        }
+    elif any(kw in error_str for kw in ['429', 'quota', 'rate limit', 'insufficient']):
+        return {
+            "type": "quota",
+            "title": "💰 额度不足",
+            "message": "API 调用额度已用完或请求过于频繁",
+            "action": "检查额度"
+        }
+    else:
+        return {
+            "type": "unknown",
+            "title": "❌ 未知错误",
+            "message": f"发生未知错误：{str(error)}",
+            "action": "重试"
+        }
+
+# ========== 语音转文字函数（v2.3.1 升级：使用统一客户端 + 错误分类） ==========
+def transcribe_audio(audio_bytes: bytes, api_key: str) -> dict:
     tmp_path = None
     try:
-        client = OpenAI(
-            api_key=api_key,
-            base_url="https://api.siliconflow.cn/v1"
-        )
+        client = get_openai_client(api_key)
         
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
             tmp_file.write(audio_bytes)
@@ -361,12 +418,11 @@ def transcribe_audio(audio_bytes, api_key):
         
         with open(tmp_path, "rb") as audio:
             transcription = client.audio.transcriptions.create(
-                model="FunAudioLLM/SenseVoiceSmall",
+                model=CONFIG['models']['transcribe'],
                 file=audio,
                 language="zh"
             )
             
-            # 处理返回结果
             result_text = ""
             
             if hasattr(transcription, 'text'):
@@ -392,7 +448,15 @@ def transcribe_audio(audio_bytes, api_key):
         return {"success": True, "text": result_text}
         
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        error_info = classify_error(e)
+        return {
+            "success": False, 
+            "error_type": error_info["type"],
+            "error_title": error_info["title"],
+            "error_message": error_info["message"],
+            "error_action": error_info["action"],
+            "error_raw": str(e)
+        }
     
     finally:
         if tmp_path and os.path.exists(tmp_path):
@@ -404,7 +468,6 @@ col1, col2 = st.columns([1, 1])
 with col1:
     st.subheader("🎤 语音输入")
     
-    # 方式一：实时录音
     st.markdown("""
     <div style="padding: 15px; border-radius: 12px; margin-bottom: 10px; 
                 background-color: var(--bg-secondary); 
@@ -441,7 +504,25 @@ with col1:
                         st.success(f"✅ 转写完成！共 {len(clean_text)} 字")
                         st.rerun()
                 else:
-                    st.error(f"❌ 转写失败：{result['error']}")
+                    # v2.3.1 升级：错误分类显示
+                    error_type = result.get("error_type", "unknown")
+                    error_title = result.get("error_title", "错误")
+                    error_message = result.get("error_message", result["error_raw"])
+                    
+                    if error_type == "auth":
+                        st.error(f"{error_title}：{error_message}")
+                        if st.button("🔄 重新输入密钥", key="reauth_mic"):
+                            st.session_state.authenticated = False
+                            st.session_state.api_key = ""
+                            st.rerun()
+                    elif error_type == "network":
+                        st.warning(f"{error_title}：{error_message}")
+                    elif error_type == "format":
+                        st.warning(f"{error_title}：{error_message}")
+                    elif error_type == "quota":
+                        st.error(f"{error_title}：{error_message}")
+                    else:
+                        st.error(f"{error_title}：{error_message}")
                     
     except ImportError:
         st.error("⚠️ 录音组件加载失败，请使用方式二上传文件")
@@ -451,7 +532,6 @@ with col1:
     
     st.divider()
     
-    # 方式二：上传录音（iOS 推荐）
     st.subheader("📁 方式二：上传录音")
     
     st.info("""
@@ -483,7 +563,25 @@ with col1:
                         st.success(f"✅ 完成！共 {len(clean_text)} 字")
                         st.rerun()
                 else:
-                    st.error(f"❌ 失败：{result['error']}")
+                    # v2.3.1 升级：错误分类显示
+                    error_type = result.get("error_type", "unknown")
+                    error_title = result.get("error_title", "错误")
+                    error_message = result.get("error_message", result["error_raw"])
+                    
+                    if error_type == "auth":
+                        st.error(f"{error_title}：{error_message}")
+                        if st.button("🔄 重新输入密钥", key="reauth_upload"):
+                            st.session_state.authenticated = False
+                            st.session_state.api_key = ""
+                            st.rerun()
+                    elif error_type == "network":
+                        st.warning(f"{error_title}：{error_message}")
+                    elif error_type == "format":
+                        st.warning(f"{error_title}：{error_message}")
+                    elif error_type == "quota":
+                        st.error(f"{error_title}：{error_message}")
+                    else:
+                        st.error(f"{error_title}：{error_message}")
 
 with col2:
     st.subheader("📝 编辑与生成")
@@ -516,10 +614,8 @@ with col2:
             else:
                 with st.spinner("🤖 生成中..."):
                     try:
-                        client = OpenAI(
-                            api_key=api_key, 
-                            base_url="https://api.siliconflow.cn/v1"
-                        )
+                        # v2.3.1 升级：使用统一客户端
+                        client = get_openai_client(api_key)
                         
                         prompts = {
                             "会议纪要": "整理成会议纪要：1主题 2讨论 3决议 4待办",
@@ -533,7 +629,7 @@ with col2:
                             prompt += f"。要求：{custom_req}"
                         
                         response = client.chat.completions.create(
-                            model="deepseek-ai/DeepSeek-V3",
+                            model=CONFIG['models']['generate'],
                             messages=[
                                 {"role": "system", "content": prompt},
                                 {"role": "user", "content": content}
@@ -545,7 +641,15 @@ with col2:
                         st.session_state.generated_result = response.choices[0].message.content
                         
                     except Exception as e:
-                        st.error(f"❌ 生成失败：{str(e)}")
+                        # v2.3.1 升级：错误分类
+                        error_info = classify_error(e)
+                        st.error(f"{error_info['title']}：{error_info['message']}")
+                        
+                        if error_info['type'] == 'auth':
+                            if st.button("🔄 重新输入密钥", key="reauth_gen"):
+                                st.session_state.authenticated = False
+                                st.session_state.api_key = ""
+                                st.rerun()
     
     with col_clear:
         if st.button("🗑️ 清空", use_container_width=True):
@@ -565,5 +669,6 @@ with col2:
             mime="text/plain"
         )
 
+# ========== v2.3.1 升级：统一版本号引用 ==========
 st.divider()
-st.caption("Made with ❤️ | PWA版 v2.3.0 - 像App一样使用")
+st.caption(f"Made with ❤️ | PWA版 v{CONFIG['version']} - 像App一样使用")
