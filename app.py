@@ -320,7 +320,7 @@ def transcribe_audio(audio_bytes, api_key):
     try:
         client = OpenAI(
             api_key=api_key,
-            base_url="https://api.siliconflow.cn/v1   "
+            base_url="https://api.siliconflow.cn/v1"
         )
         
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
@@ -499,7 +499,7 @@ with col2:
                     try:
                         client = OpenAI(
                             api_key=api_key, 
-                            base_url="https://api.siliconflow.cn/v1   "
+                            base_url="https://api.siliconflow.cn/v1"
                         )
                         
                         prompts = {
