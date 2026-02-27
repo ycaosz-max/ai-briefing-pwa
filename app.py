@@ -4,8 +4,8 @@ import os
 import tempfile
 import json
 
-# ========== v2.4.0 升级：新增英文输出功能 ==========
-VERSION = "2.4.0"
+# ========== v2.5.0 升级：同时生成中英文对照，下载时选择语言 ==========
+VERSION = "2.5.0"
 
 CONFIG = {
     "version": VERSION,
@@ -592,13 +592,6 @@ with col2:
         key="briefing_type"
     )
 
-    output_lang = st.radio(
-        "输出语言 / Output Language",
-        ["中文", "English"],
-        horizontal=True,
-        key="output_lang"
-    )
-    
     default_text = st.session_state.get("transcribed_text", "")
     
     content = st.text_area(
@@ -615,74 +608,103 @@ with col2:
     
     col_gen, col_clear = st.columns([3, 1])
     with col_gen:
-        if st.button("✨ 生成简报", type="primary", use_container_width=True):
+        if st.button("✨ 生成简报（中英双语）", type="primary", use_container_width=True):
             if not content.strip():
                 st.error("❌ 内容不能为空")
             else:
-                with st.spinner("🤖 生成中..."):
-                    try:
-                        # v2.3.1 升级：使用统一客户端
-                        client = get_openai_client(api_key)
-                        
-                        prompts_zh = {
-                            "会议纪要": "整理成会议纪要：1主题 2讨论 3决议 4待办",
-                            "工作日报": "整理成工作日报：1完成 2问题 3计划",
-                            "学习笔记": "整理成学习笔记：1概念 2重点 3思考",
-                            "新闻摘要": "整理成新闻摘要：1事件 2数据 3影响"
-                        }
-                        prompts_en = {
-                            "会议纪要": "Organize into meeting minutes in English: 1.Topic 2.Discussion Points 3.Decisions 4.Action Items",
-                            "工作日报": "Organize into a daily work report in English: 1.Completed Tasks 2.Issues 3.Tomorrow's Plan",
-                            "学习笔记": "Organize into study notes in English: 1.Core Concepts 2.Key Points 3.Reflections",
-                            "新闻摘要": "Organize into a news summary in English: 1.Core Event 2.Key Data 3.Impact Analysis"
-                        }
-                        prompts = prompts_en if output_lang == "English" else prompts_zh
-                        
-                        prompt = prompts[briefing_type]
+                prompts_zh = {
+                    "会议纪要": "整理成会议纪要：1主题 2讨论 3决议 4待办",
+                    "工作日报": "整理成工作日报：1完成 2问题 3计划",
+                    "学习笔记": "整理成学习笔记：1概念 2重点 3思考",
+                    "新闻摘要": "整理成新闻摘要：1事件 2数据 3影响"
+                }
+                prompts_en = {
+                    "会议纪要": "Organize into meeting minutes in English: 1.Topic 2.Discussion Points 3.Decisions 4.Action Items",
+                    "工作日报": "Organize into a daily work report in English: 1.Completed Tasks 2.Issues 3.Tomorrow's Plan",
+                    "学习笔记": "Organize into study notes in English: 1.Core Concepts 2.Key Points 3.Reflections",
+                    "新闻摘要": "Organize into a news summary in English: 1.Core Event 2.Key Data 3.Impact Analysis"
+                }
+
+                try:
+                    client = get_openai_client(api_key)
+
+                    # 生成中文版
+                    with st.spinner("🤖 生成中文版..."):
+                        prompt_zh = prompts_zh[briefing_type]
                         if custom_req:
-                            prompt += f"。要求：{custom_req}"
-                        
-                        response = client.chat.completions.create(
+                            prompt_zh += f"。要求：{custom_req}"
+                        resp_zh = client.chat.completions.create(
                             model=CONFIG['models']['generate'],
                             messages=[
-                                {"role": "system", "content": prompt},
+                                {"role": "system", "content": prompt_zh},
                                 {"role": "user", "content": content}
                             ],
                             temperature=0.7,
                             max_tokens=2000
                         )
-                        
-                        st.session_state.generated_result = response.choices[0].message.content
-                        
-                    except Exception as e:
-                        # v2.3.1 升级：错误分类
-                        error_info = classify_error(e)
-                        st.error(f"{error_info['title']}：{error_info['message']}")
-                        
-                        if error_info['type'] == 'auth':
-                            if st.button("🔄 重新输入密钥", key="reauth_gen"):
-                                st.session_state.authenticated = False
-                                st.session_state.api_key = ""
-                                st.rerun()
-    
+                        st.session_state.generated_result_zh = resp_zh.choices[0].message.content
+
+                    # 生成英文版
+                    with st.spinner("🤖 Generating English version..."):
+                        prompt_en = prompts_en[briefing_type]
+                        if custom_req:
+                            prompt_en += f". Requirements: {custom_req}"
+                        resp_en = client.chat.completions.create(
+                            model=CONFIG['models']['generate'],
+                            messages=[
+                                {"role": "system", "content": prompt_en},
+                                {"role": "user", "content": content}
+                            ],
+                            temperature=0.7,
+                            max_tokens=2000
+                        )
+                        st.session_state.generated_result_en = resp_en.choices[0].message.content
+
+                except Exception as e:
+                    error_info = classify_error(e)
+                    st.error(f"{error_info['title']}：{error_info['message']}")
+                    if error_info['type'] == 'auth':
+                        if st.button("🔄 重新输入密钥", key="reauth_gen"):
+                            st.session_state.authenticated = False
+                            st.session_state.api_key = ""
+                            st.rerun()
+
     with col_clear:
         if st.button("🗑️ 清空", use_container_width=True):
             st.session_state.transcribed_text = ""
-            if "generated_result" in st.session_state:
-                del st.session_state.generated_result
+            for _k in ["generated_result_zh", "generated_result_en", "generated_result"]:
+                if _k in st.session_state:
+                    del st.session_state[_k]
             st.rerun()
-    
-    if "generated_result" in st.session_state:
-        st.divider()
-        st.success("✅ 生成完成！")
-        st.markdown(st.session_state.generated_result)
-        st.download_button(
-            "📋 下载 / Download",
-            st.session_state.generated_result,
-            file_name=f"{'Briefing' if output_lang == 'English' else '简报'}_{briefing_type}.txt",
-            mime="text/plain"
-        )
 
-# ========== v2.3.1 升级：统一版本号引用 ==========
+    # ========== v2.5.0：中英文双语结果展示 + 分语言下载 ==========
+    if "generated_result_zh" in st.session_state or "generated_result_en" in st.session_state:
+        st.divider()
+        st.success("✅ 双语简报生成完成！")
+        tab_zh, tab_en = st.tabs(["🇨🇳 中文版", "🇬🇧 English Version"])
+
+        with tab_zh:
+            result_zh = st.session_state.get("generated_result_zh", "")
+            st.markdown(result_zh)
+            st.download_button(
+                "📥 下载中文版",
+                result_zh,
+                file_name=f"简报_{briefing_type}.txt",
+                mime="text/plain",
+                key="dl_zh"
+            )
+
+        with tab_en:
+            result_en = st.session_state.get("generated_result_en", "")
+            st.markdown(result_en)
+            st.download_button(
+                "📥 Download English Version",
+                result_en,
+                file_name=f"Briefing_{briefing_type}.txt",
+                mime="text/plain",
+                key="dl_en"
+            )
+
+# ========== v2.5.0：版本号引用 ==========
 st.divider()
-st.caption(f"Made with ❤️ | PWA版 v{CONFIG['version']} - 像App一样使用")
+st.caption(f"Made with ❤️ | PWA版 v{CONFIG['version']} - 双语简报，随时下载")
