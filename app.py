@@ -4,8 +4,8 @@ import os
 import tempfile
 import json
 
-# ========== v2.7.0 升级：排版 + 等待体验优化 ==========
-VERSION = "2.7.0"
+# ========== v2.8.0 升级：先中文后翻译，中文可编辑后重新翻译英文 ==========
+VERSION = "2.8.0"
 
 CONFIG = {
     "version": VERSION,
@@ -566,6 +566,37 @@ def transcribe_audio(audio_bytes: bytes, api_key: str) -> dict:
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
 
+# ========== v2.8.0：中文→英文翻译函数 ==========
+def translate_zh_to_en(zh_text: str, briefing_type: str, api_key: str) -> dict:
+    type_map = {
+        "会议纪要": "meeting minutes",
+        "工作日报": "daily work report",
+        "学习笔记": "study notes",
+        "新闻摘要": "news summary",
+    }
+    en_type = type_map.get(briefing_type, "briefing")
+    system_prompt = (
+        f"You are a professional translator. Translate the following Chinese {en_type} "
+        f"into natural, professional English. Preserve the exact structure, all headings, "
+        f"bullet points, and every detail. Do not add, omit, or paraphrase any content."
+    )
+    try:
+        client = get_openai_client(api_key)
+        resp = client.chat.completions.create(
+            model=CONFIG['models']['generate'],
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": zh_text},
+            ],
+            temperature=0.3,
+            max_tokens=3000,
+        )
+        return {"success": True, "text": resp.choices[0].message.content}
+    except Exception as e:
+        error_info = classify_error(e)
+        return {"success": False, **error_info, "error_raw": str(e)}
+
+
 # ========== 主界面 ==========
 col1, col2 = st.columns([1, 1])
 
@@ -714,18 +745,11 @@ with col2:
                     "学习笔记": "整理成学习笔记：1概念 2重点 3思考",
                     "新闻摘要": "整理成新闻摘要：1事件 2数据 3影响"
                 }
-                prompts_en = {
-                    "会议纪要": "Organize into meeting minutes in English: 1.Topic 2.Discussion Points 3.Decisions 4.Action Items",
-                    "工作日报": "Organize into a daily work report in English: 1.Completed Tasks 2.Issues 3.Tomorrow's Plan",
-                    "学习笔记": "Organize into study notes in English: 1.Core Concepts 2.Key Points 3.Reflections",
-                    "新闻摘要": "Organize into a news summary in English: 1.Core Event 2.Key Data 3.Impact Analysis"
-                }
-
                 try:
                     client = get_openai_client(api_key)
-                    progress_bar = st.progress(0, text="🤖 正在生成中文版... (1/2)")
+                    progress_bar = st.progress(0, text="🤖 第 1 步：生成中文简报...")
 
-                    # 生成中文版
+                    # Step 1：生成中文简报
                     prompt_zh = prompts_zh[briefing_type]
                     if custom_req:
                         prompt_zh += f"。要求：{custom_req}"
@@ -738,24 +762,20 @@ with col2:
                         temperature=0.7,
                         max_tokens=2000
                     )
-                    st.session_state.generated_result_zh = resp_zh.choices[0].message.content
-                    progress_bar.progress(50, text="🤖 Generating English version... (2/2)")
+                    zh_result = resp_zh.choices[0].message.content
+                    st.session_state.generated_result_zh = zh_result
+                    # 重置编辑器内容
+                    st.session_state.zh_edit_content = zh_result
+                    progress_bar.progress(50, text="🌐 第 2 步：翻译为英文...")
 
-                    # 生成英文版
-                    prompt_en = prompts_en[briefing_type]
-                    if custom_req:
-                        prompt_en += f". Requirements: {custom_req}"
-                    resp_en = client.chat.completions.create(
-                        model=CONFIG['models']['generate'],
-                        messages=[
-                            {"role": "system", "content": prompt_en},
-                            {"role": "user", "content": content}
-                        ],
-                        temperature=0.7,
-                        max_tokens=2000
-                    )
-                    st.session_state.generated_result_en = resp_en.choices[0].message.content
-                    progress_bar.progress(100, text="✅ 双语简报生成完成！")
+                    # Step 2：翻译中文 → 英文（保证对齐）
+                    en_result = translate_zh_to_en(zh_result, briefing_type, api_key)
+                    if en_result["success"]:
+                        st.session_state.generated_result_en = en_result["text"]
+                        progress_bar.progress(100, text="✅ 双语简报生成完成！")
+                    else:
+                        progress_bar.progress(100, text="⚠️ 翻译失败，中文版已生成")
+                        st.warning(f"英文翻译失败：{en_result.get('message', '')}，可稍后手动点击「重新翻译英文」")
 
                 except Exception as e:
                     error_info = classify_error(e)
@@ -774,27 +794,55 @@ with col2:
                     del st.session_state[_k]
             st.rerun()
 
-    # ========== v2.6.0：中英文双语结果展示 + 字数徽章 + 分语言下载 ==========
+    # ========== v2.8.0：中文可编辑 + 一键重新翻译英文 ==========
     if "generated_result_zh" in st.session_state or "generated_result_en" in st.session_state:
         st.divider()
-        tab_zh, tab_en = st.tabs(["🇨🇳 中文版", "🇬🇧 English Version"])
+        tab_zh, tab_en = st.tabs(["🇨🇳 中文版（可编辑）", "🇬🇧 English Version"])
 
         with tab_zh:
-            result_zh = st.session_state.get("generated_result_zh", "")
-            if result_zh:
+            # 初始化编辑器内容（首次或新生成后）
+            if "zh_edit_content" not in st.session_state:
+                st.session_state.zh_edit_content = st.session_state.get("generated_result_zh", "")
+
+            current_zh = st.session_state.get("zh_edit_content", "")
+            if current_zh:
                 st.markdown(
-                    f'<span class="stat-badge">📝 {len(result_zh)} 字</span>',
+                    f'<span class="stat-badge">📝 {len(current_zh)} 字</span>',
                     unsafe_allow_html=True
                 )
-            st.markdown(result_zh)
-            st.download_button(
-                "📥 下载中文版",
-                result_zh,
-                file_name=f"简报_{briefing_type}.txt",
-                mime="text/plain",
-                key="dl_zh",
-                use_container_width=True
+
+            st.text_area(
+                "编辑中文简报",
+                key="zh_edit_content",
+                height=380,
+                help="可直接编辑中文内容，修改后点击下方「重新翻译英文」同步更新英文版"
             )
+
+            col_dl_zh, col_retrans = st.columns([1, 1])
+            with col_dl_zh:
+                st.download_button(
+                    "📥 下载中文版",
+                    st.session_state.get("zh_edit_content", ""),
+                    file_name=f"简报_{briefing_type}.txt",
+                    mime="text/plain",
+                    key="dl_zh",
+                    use_container_width=True
+                )
+            with col_retrans:
+                if st.button("🔄 重新翻译英文", key="retranslate_btn", use_container_width=True,
+                             help="根据当前中文内容重新生成英文版"):
+                    edited_zh = st.session_state.get("zh_edit_content", "")
+                    if not edited_zh.strip():
+                        st.error("中文内容为空，无法翻译")
+                    else:
+                        with st.spinner("🌐 翻译中，请稍候..."):
+                            en_result = translate_zh_to_en(edited_zh, briefing_type, api_key)
+                        if en_result["success"]:
+                            st.session_state.generated_result_en = en_result["text"]
+                            st.success("✅ 英文版已同步更新，请切换到英文 Tab 查看")
+                            st.rerun()
+                        else:
+                            st.error(f"{en_result.get('title', '翻译失败')}：{en_result.get('message', '')}")
 
         with tab_en:
             result_en = st.session_state.get("generated_result_en", "")
@@ -804,16 +852,17 @@ with col2:
                     f'<span class="stat-badge">📝 ~{word_count} words</span>',
                     unsafe_allow_html=True
                 )
-            st.markdown(result_en)
-            st.download_button(
-                "📥 Download English Version",
-                result_en,
-                file_name=f"Briefing_{briefing_type}.txt",
-                mime="text/plain",
-                key="dl_en",
-                use_container_width=True
-            )
+            st.markdown(result_en if result_en else "_英文版尚未生成，请切换到中文 Tab 点击「重新翻译英文」_")
+            if result_en:
+                st.download_button(
+                    "📥 Download English Version",
+                    result_en,
+                    file_name=f"Briefing_{briefing_type}.txt",
+                    mime="text/plain",
+                    key="dl_en",
+                    use_container_width=True
+                )
 
-# ========== v2.7.0：版本号引用 ==========
+# ========== v2.8.0：版本号引用 ==========
 st.divider()
 st.caption(f"Made with ❤️ | PWA v{CONFIG['version']} · AI语音简报助手")
