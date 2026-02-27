@@ -4,8 +4,8 @@ import os
 import tempfile
 import json
 
-# ========== v2.8.0 升级：先中文后翻译，中文可编辑后重新翻译英文 ==========
-VERSION = "2.8.0"
+# ========== v2.9.0 升级：修复 iOS PWA 下载后无法返回问题 ==========
+VERSION = "2.9.0"
 
 CONFIG = {
     "version": VERSION,
@@ -597,6 +597,88 @@ def translate_zh_to_en(zh_text: str, briefing_type: str, api_key: str) -> dict:
         return {"success": False, **error_info, "error_raw": str(e)}
 
 
+# ========== v2.9.0：iOS PWA 兼容导出按钮 ==========
+def make_export_button(content: str, filename: str, label: str, key: str):
+    """
+    iOS PWA 兼容的导出按钮。
+    优先级：Web Share API（iOS 原生分享）→ Blob 下载（桌面）→ 剪贴板复制（兜底）
+    """
+    import base64
+    # base64 编码 UTF-8 内容，安全嵌入 JS
+    content_b64 = base64.b64encode(content.encode("utf-8")).decode("ascii")
+    btn_id = f"ebtn_{key}"
+    msg_id = f"emsg_{key}"
+    safe_filename = filename.replace("'", "_")
+
+    html = f"""
+<div style="width:100%;margin-top:4px;">
+  <button id="{btn_id}"
+    onclick="exportContent_{key}()"
+    style="
+      width:100%; padding:8px 16px; border-radius:10px;
+      background:transparent;
+      color:var(--accent-color,#FF6B6B);
+      border:1.5px solid var(--accent-color,#FF6B6B);
+      font-weight:600; font-size:14px; cursor:pointer;
+      touch-action:manipulation; -webkit-appearance:none;
+      transition: background 0.15s, color 0.15s;
+    "
+    onmouseover="this.style.background='var(--accent-color,#FF6B6B)';this.style.color='#fff'"
+    onmouseout="this.style.background='transparent';this.style.color='var(--accent-color,#FF6B6B)'">
+    {label}
+  </button>
+  <div id="{msg_id}" style="font-size:12px;color:#30d158;text-align:center;margin-top:4px;min-height:16px;"></div>
+</div>
+<script>
+async function exportContent_{key}() {{
+  const b64 = '{content_b64}';
+  const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  const text = new TextDecoder('utf-8').decode(bytes);
+  const filename = '{safe_filename}';
+  const msg = document.getElementById('{msg_id}');
+
+  // 1. Web Share API（iOS PWA 原生分享，不离开 App）
+  if (navigator.share) {{
+    try {{
+      const blob = new Blob([text], {{type: 'text/plain;charset=utf-8'}});
+      const file = new File([blob], filename, {{type: 'text/plain'}});
+      const data = (navigator.canShare && navigator.canShare({{files: [file]}}))
+        ? {{files: [file], title: filename}}
+        : {{title: filename, text: text}};
+      await navigator.share(data);
+      return;
+    }} catch(e) {{
+      if (e.name === 'AbortError') return; // 用户取消，不继续
+    }}
+  }}
+
+  // 2. Blob 下载（桌面浏览器）
+  try {{
+    const blob = new Blob([text], {{type: 'text/plain;charset=utf-8'}});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+    msg.textContent = '✅ 已下载';
+    setTimeout(() => msg.textContent = '', 3000);
+    return;
+  }} catch(e) {{}}
+
+  // 3. 复制到剪贴板（兜底）
+  try {{
+    await navigator.clipboard.writeText(text);
+    msg.textContent = '✅ 已复制到剪贴板';
+    setTimeout(() => msg.textContent = '', 3000);
+  }} catch(e) {{
+    msg.textContent = '请手动复制内容';
+  }}
+}}
+</script>
+"""
+    st.markdown(html, unsafe_allow_html=True)
+
+
 # ========== 主界面 ==========
 col1, col2 = st.columns([1, 1])
 
@@ -820,13 +902,11 @@ with col2:
 
             col_dl_zh, col_retrans = st.columns([1, 1])
             with col_dl_zh:
-                st.download_button(
-                    "📥 下载中文版",
-                    st.session_state.get("zh_edit_content", ""),
-                    file_name=f"简报_{briefing_type}.txt",
-                    mime="text/plain",
-                    key="dl_zh",
-                    use_container_width=True
+                make_export_button(
+                    content=st.session_state.get("zh_edit_content", ""),
+                    filename=f"简报_{briefing_type}.txt",
+                    label="📤 导出中文版",
+                    key="zh"
                 )
             with col_retrans:
                 if st.button("🔄 重新翻译英文", key="retranslate_btn", use_container_width=True,
@@ -854,15 +934,13 @@ with col2:
                 )
             st.markdown(result_en if result_en else "_英文版尚未生成，请切换到中文 Tab 点击「重新翻译英文」_")
             if result_en:
-                st.download_button(
-                    "📥 Download English Version",
-                    result_en,
-                    file_name=f"Briefing_{briefing_type}.txt",
-                    mime="text/plain",
-                    key="dl_en",
-                    use_container_width=True
+                make_export_button(
+                    content=result_en,
+                    filename=f"Briefing_{briefing_type}.txt",
+                    label="📤 Export English Version",
+                    key="en"
                 )
 
-# ========== v2.8.0：版本号引用 ==========
+# ========== v2.9.0：版本号引用 ==========
 st.divider()
 st.caption(f"Made with ❤️ | PWA v{CONFIG['version']} · AI语音简报助手")
