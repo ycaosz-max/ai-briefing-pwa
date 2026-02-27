@@ -4,8 +4,8 @@ import os
 import tempfile
 import json
 
-# ========== v2.6.0 升级：UI/UX 全面优化 ==========
-VERSION = "2.6.0"
+# ========== v2.7.0 升级：排版 + 等待体验优化 ==========
+VERSION = "2.7.0"
 
 CONFIG = {
     "version": VERSION,
@@ -149,11 +149,13 @@ st.markdown(f"""
     color: var(--text-primary);
 }}
 
-/* ========== 页头 ========== */
+/* ========== 页头（渐变背景） ========== */
 .header-area {{
-    padding: 20px 0 8px 0;
-    border-bottom: 1px solid var(--border-color);
-    margin-bottom: 16px;
+    padding: 20px 16px 14px 16px;
+    background: linear-gradient(135deg, rgba(255,107,107,0.07) 0%, transparent 60%);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    margin-bottom: 18px;
 }}
 .big-title {{
     font-size: 30px;
@@ -319,6 +321,66 @@ hr {{ border-color: var(--border-color) !important; }}
 
 @media (display-mode: standalone) {{
     .main .block-container {{ padding-top: 1.5rem; }}
+}}
+
+/* ========== 结果区排版 ========== */
+[data-testid="stTabs"] .stMarkdown p {{
+    line-height: 1.85;
+    margin-bottom: 10px;
+    color: var(--text-primary);
+}}
+[data-testid="stTabs"] .stMarkdown li {{
+    line-height: 1.75;
+    margin-bottom: 4px;
+    color: var(--text-primary);
+}}
+[data-testid="stTabs"] .stMarkdown h1,
+[data-testid="stTabs"] .stMarkdown h2 {{
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--accent-color);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 6px;
+    margin: 18px 0 10px 0;
+}}
+[data-testid="stTabs"] .stMarkdown h3 {{
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 14px 0 6px 0;
+}}
+[data-testid="stTabs"] .stMarkdown strong {{
+    font-weight: 700;
+    color: var(--text-primary);
+}}
+
+/* ========== 字数显示 ========== */
+.char-count {{
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-align: right;
+    margin-top: -4px;
+    margin-bottom: 10px;
+}}
+
+/* ========== iPhone 提示卡片 ========== */
+.tip-card {{
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--accent-color);
+    border-radius: 10px;
+    padding: 11px 14px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-bottom: 10px;
+}}
+.tip-card b {{ color: var(--text-primary); }}
+
+/* ========== st.status 容器 ========== */
+[data-testid="stStatusWidget"] {{
+    border-radius: 12px !important;
+    border-color: var(--border-color) !important;
 }}
 
 * {{ transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease; }}
@@ -534,37 +596,31 @@ with col1:
         )
         
         if audio and audio.get("bytes"):
-            with st.spinner("🤖 AI正在转写..."):
+            audio_kb = len(audio["bytes"]) / 1024
+            with st.status(f"🎙️ 转写中（{audio_kb:.0f} KB）…", expanded=True) as ts:
+                st.write("音频已捕获，正在上传到 AI 服务器…")
+                st.write("SenseVoice 语音识别中，请稍候…")
                 result = transcribe_audio(audio["bytes"], api_key)
-                
                 if result["success"]:
                     clean_text = result["text"]
                     if not clean_text or clean_text.strip() == "":
-                        st.warning("⚠️ 转写结果为空，请检查录音是否清晰")
+                        ts.update(label="⚠️ 转写结果为空", state="error", expanded=True)
+                        st.warning("录音内容可能过短或不清晰，请重新录制")
                     else:
+                        ts.update(label=f"✅ 转写完成！共 {len(clean_text)} 字", state="complete", expanded=False)
                         st.session_state.transcribed_text = clean_text
-                        st.success(f"✅ 转写完成！共 {len(clean_text)} 字")
                         st.rerun()
                 else:
-                    # v2.3.1 升级：错误分类显示
                     error_type = result.get("error_type", "unknown")
                     error_title = result.get("error_title", "错误")
                     error_message = result.get("error_message", result["error_raw"])
-                    
+                    ts.update(label=f"❌ {error_title}", state="error", expanded=True)
+                    st.write(error_message)
                     if error_type == "auth":
-                        st.error(f"{error_title}：{error_message}")
                         if st.button("🔄 重新输入密钥", key="reauth_mic"):
                             st.session_state.authenticated = False
                             st.session_state.api_key = ""
                             st.rerun()
-                    elif error_type == "network":
-                        st.warning(f"{error_title}：{error_message}")
-                    elif error_type == "format":
-                        st.warning(f"{error_title}：{error_message}")
-                    elif error_type == "quota":
-                        st.error(f"{error_title}：{error_message}")
-                    else:
-                        st.error(f"{error_title}：{error_message}")
                     
     except ImportError:
         st.error("⚠️ 录音组件加载失败，请使用方式二上传文件")
@@ -576,12 +632,11 @@ with col1:
     
     st.subheader("📁 方式二：上传录音")
     
-    st.info("""
-    💡 **iPhone 用户推荐此方式**：
-    1. 用"语音备忘录"录好音
-    2. 点击分享 → 存储到"文件"
-    3. 在这里选择文件上传
-    """)
+    st.markdown("""
+    <div class="tip-card">
+        💡 <b>iPhone 用户推荐</b>：用「语音备忘录」录音 → 分享 → 存储到「文件」→ 在此上传
+    </div>
+    """, unsafe_allow_html=True)
     
     audio_file = st.file_uploader(
         "选择录音文件", 
@@ -593,37 +648,33 @@ with col1:
         st.audio(audio_file, format=f'audio/{audio_file.type.split("/")[1]}')
         
         if st.button("🎯 开始转写", type="primary", key="transcribe_upload"):
-            with st.spinner("🤖 正在识别..."):
-                result = transcribe_audio(audio_file.getvalue(), api_key)
-                
+            file_bytes = audio_file.getvalue()
+            file_mb = len(file_bytes) / (1024 * 1024)
+            wait_hint = "文件较大，预计需要 15–40 秒，请耐心等待…" if file_mb > 1 else "上传并识别中，通常需要 5–15 秒…"
+            with st.status(f"🎙️ 转写中（{file_mb:.1f} MB）…", expanded=True) as ts:
+                st.write(f"文件大小：**{file_mb:.2f} MB**")
+                st.write(wait_hint)
+                result = transcribe_audio(file_bytes, api_key)
                 if result["success"]:
                     clean_text = result["text"]
                     if not clean_text or clean_text.strip() == "":
-                        st.warning("⚠️ 转写结果为空，请检查音频文件")
+                        ts.update(label="⚠️ 转写结果为空", state="error", expanded=True)
+                        st.warning("音频内容可能过短或格式不支持，请换个文件试试")
                     else:
+                        ts.update(label=f"✅ 转写完成！共 {len(clean_text)} 字", state="complete", expanded=False)
                         st.session_state.transcribed_text = clean_text
-                        st.success(f"✅ 完成！共 {len(clean_text)} 字")
                         st.rerun()
                 else:
-                    # v2.3.1 升级：错误分类显示
                     error_type = result.get("error_type", "unknown")
                     error_title = result.get("error_title", "错误")
                     error_message = result.get("error_message", result["error_raw"])
-                    
+                    ts.update(label=f"❌ {error_title}", state="error", expanded=True)
+                    st.write(error_message)
                     if error_type == "auth":
-                        st.error(f"{error_title}：{error_message}")
                         if st.button("🔄 重新输入密钥", key="reauth_upload"):
                             st.session_state.authenticated = False
                             st.session_state.api_key = ""
                             st.rerun()
-                    elif error_type == "network":
-                        st.warning(f"{error_title}：{error_message}")
-                    elif error_type == "format":
-                        st.warning(f"{error_title}：{error_message}")
-                    elif error_type == "quota":
-                        st.error(f"{error_title}：{error_message}")
-                    else:
-                        st.error(f"{error_title}：{error_message}")
 
 with col2:
     st.subheader("📝 编辑与生成")
@@ -645,7 +696,10 @@ with col2:
     
     if content != st.session_state.get("transcribed_text", ""):
         st.session_state.transcribed_text = content
-    
+
+    if content:
+        st.markdown(f'<p class="char-count">{len(content)} 字</p>', unsafe_allow_html=True)
+
     custom_req = st.text_input("特殊要求", placeholder="例如：重点突出数据、使用 bullet points")
     
     col_gen, col_clear = st.columns([3, 1])
@@ -760,6 +814,6 @@ with col2:
                 use_container_width=True
             )
 
-# ========== v2.6.0：版本号引用 ==========
+# ========== v2.7.0：版本号引用 ==========
 st.divider()
 st.caption(f"Made with ❤️ | PWA v{CONFIG['version']} · AI语音简报助手")
