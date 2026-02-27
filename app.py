@@ -4,8 +4,8 @@ import os
 import tempfile
 import json
 
-# ========== v2.5.0 升级：同时生成中英文对照，下载时选择语言 ==========
-VERSION = "2.5.0"
+# ========== v2.6.0 升级：UI/UX 全面优化 ==========
+VERSION = "2.6.0"
 
 CONFIG = {
     "version": VERSION,
@@ -84,7 +84,7 @@ st.set_page_config(
     page_icon="🎙️"
 )
 
-# ========== v2.3.1 升级：CSS 变量引用 CONFIG ==========
+# ========== v2.6.0：CSS 全面优化 ==========
 st.markdown(f"""
 <style>
 /* ========== 基础变量定义 ========== */
@@ -103,7 +103,7 @@ st.markdown(f"""
     --button-text: {CONFIG['theme']['light']['button_text']};
 }}
 
-/* ========== iOS 暗黑模式检测 ========== */
+/* ========== iOS 暗黑模式 ========== */
 @media (prefers-color-scheme: dark) {{
     :root {{
         --bg-primary: {CONFIG['theme']['dark']['bg_primary']};
@@ -119,30 +119,22 @@ st.markdown(f"""
         --input-text: {CONFIG['theme']['dark']['input_text']};
         --button-text: {CONFIG['theme']['dark']['button_text']};
     }}
-    
-    .stApp {{
-        background-color: var(--bg-primary) !important;
-    }}
-    
+    .stApp {{ background-color: var(--bg-primary) !important; }}
     .stTextInput input, .stTextArea textarea {{
         background-color: var(--input-bg) !important;
         color: var(--input-text) !important;
         border-color: var(--border-color) !important;
     }}
-    
     .stSelectbox > div > div {{
         background-color: var(--bg-card) !important;
         color: var(--text-primary) !important;
     }}
-    
     .stExpander {{
         background-color: var(--bg-card) !important;
         border-color: var(--border-color) !important;
     }}
-    
-    .stMarkdown {{
-        color: var(--text-primary) !important;
-    }}
+    .stMarkdown {{ color: var(--text-primary) !important; }}
+    .section-card {{ background-color: var(--bg-card) !important; }}
 }}
 
 /* ========== iOS 基础修复 ========== */
@@ -151,146 +143,185 @@ st.markdown(f"""
     -webkit-touch-callout: none;
 }}
 
-/* ========== 全局样式应用 ========== */
+/* ========== 全局 ========== */
 .stApp {{
     background-color: var(--bg-primary);
     color: var(--text-primary);
-    transition: background-color 0.3s ease, color 0.3s ease;
 }}
 
+/* ========== 页头 ========== */
+.header-area {{
+    padding: 20px 0 8px 0;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 16px;
+}}
 .big-title {{
-    font-size: 32px;
-    font-weight: bold;
+    font-size: 30px;
+    font-weight: 700;
     color: var(--accent-color);
-    margin-bottom: 8px;
-    transition: color 0.3s ease;
+    margin-bottom: 4px;
+    letter-spacing: -0.5px;
 }}
-
 .subtitle {{
-    font-size: 16px;
+    font-size: 14px;
     color: var(--text-secondary);
-    margin-bottom: 24px;
-    transition: color 0.3s ease;
+    margin-bottom: 14px;
 }}
 
+/* ========== 三步流程指示条 ========== */
+.steps-bar {{
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+}}
+.step-item {{
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+}}
+.step-arrow {{
+    font-size: 13px;
+    color: var(--border-color);
+    font-weight: 300;
+}}
+
+/* ========== 区块卡片 ========== */
+.section-card {{
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 12px;
+}}
+.section-card-title {{
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+}}
+
+/* ========== 统计徽章 ========== */
+.stat-badge {{
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    background-color: rgba(255, 107, 107, 0.1);
+    color: var(--accent-color);
+    font-size: 12px;
+    font-weight: 500;
+    margin-bottom: 10px;
+}}
+
+/* ========== 输入框 ========== */
 .stTextInput input, .stTextArea textarea {{
     -webkit-appearance: none !important;
     -webkit-user-select: text !important;
     user-select: text !important;
     font-size: 16px !important;
     touch-action: manipulation;
-    -webkit-border-radius: 10px;
     border-radius: 10px;
     background-color: var(--input-bg);
     color: var(--input-text);
     border: 1px solid var(--border-color);
-    transition: all 0.3s ease;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }}
-
 .stTextInput input:focus, .stTextArea textarea:focus {{
     outline: none !important;
     border-color: var(--accent-color) !important;
     box-shadow: 0 0 0 3px var(--shadow) !important;
 }}
 
+/* ========== 按钮 ========== */
 .stButton button {{
     -webkit-appearance: none;
     touch-action: manipulation;
-    -webkit-border-radius: 10px;
     border-radius: 10px;
     background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-hover) 100%) !important;
     color: var(--button-text) !important;
     border: none !important;
     font-weight: 600;
-    transition: all 0.2s ease;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
 }}
-
 .stButton button:hover {{
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px var(--shadow);
+    box-shadow: 0 4px 14px var(--shadow);
+}}
+.stButton button:active {{ transform: translateY(0); }}
+
+.stDownloadButton button {{
+    background: transparent !important;
+    color: var(--accent-color) !important;
+    border: 1.5px solid var(--accent-color) !important;
+    border-radius: 10px;
+    font-weight: 600;
+}}
+.stDownloadButton button:hover {{
+    background: var(--accent-color) !important;
+    color: var(--button-text) !important;
 }}
 
-.stButton button:active {{
-    transform: translateY(0);
-}}
-
+/* ========== 其他 Streamlit 组件 ========== */
 .stExpander {{
     background-color: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: 12px;
     overflow: hidden;
-    transition: all 0.3s ease;
 }}
-
 .stAlert {{
     background-color: var(--bg-card) !important;
     border-color: var(--border-color) !important;
     color: var(--text-primary) !important;
 }}
-
-.stInfo {{
-    background-color: rgba(255, 107, 107, 0.1) !important;
-    border-left-color: var(--accent-color) !important;
-}}
-
-.stSuccess {{
-    background-color: rgba(48, 209, 88, 0.1) !important;
-    border-left-color: #30d158 !important;
-}}
-
-.stWarning {{
-    background-color: rgba(255, 159, 10, 0.1) !important;
-    border-left-color: #ff9f0a !important;
-}}
-
-.stError {{
-    background-color: rgba(255, 69, 58, 0.1) !important;
-    border-left-color: #ff453a !important;
-}}
-
+.stInfo {{ background-color: rgba(255, 107, 107, 0.08) !important; border-left-color: var(--accent-color) !important; }}
+.stSuccess {{ background-color: rgba(48, 209, 88, 0.08) !important; border-left-color: #30d158 !important; }}
+.stWarning {{ background-color: rgba(255, 159, 10, 0.08) !important; border-left-color: #ff9f0a !important; }}
+.stError {{ background-color: rgba(255, 69, 58, 0.08) !important; border-left-color: #ff453a !important; }}
 .stFileUploader > div > div {{
     background-color: var(--bg-secondary) !important;
     border-color: var(--border-color) !important;
     color: var(--text-primary) !important;
 }}
-
-hr {{
-    border-color: var(--border-color) !important;
-}}
-
-.stDownloadButton button {{
-    background-color: var(--bg-card) !important;
-    color: var(--accent-color) !important;
-    border: 2px solid var(--accent-color) !important;
-}}
-
-.stDownloadButton button:hover {{
-    background-color: var(--accent-color) !important;
-    color: var(--button-text) !important;
-}}
-
 .stSelectbox > div > div {{
     background-color: var(--bg-card);
     border-color: var(--border-color) !important;
     color: var(--text-primary);
     border-radius: 10px;
 }}
+hr {{ border-color: var(--border-color) !important; }}
+
+/* ========== 移动端响应式：列堆叠 ========== */
+@media (max-width: 768px) {{
+    [data-testid="stHorizontalBlock"] {{ flex-wrap: wrap !important; }}
+    [data-testid="stColumn"] {{
+        width: 100% !important;
+        flex: 1 0 100% !important;
+        min-width: 100% !important;
+    }}
+    .big-title {{ font-size: 24px !important; }}
+    .subtitle {{ font-size: 13px !important; }}
+    .main .block-container {{ padding: 0.8rem !important; }}
+    .stApp {{ padding-bottom: env(safe-area-inset-bottom); }}
+    .step-item {{ font-size: 11px; padding: 4px 9px; }}
+}}
 
 @media (display-mode: standalone) {{
-    .main .block-container {{ padding-top: 2rem; }}
-    .big-title {{ margin-top: 10px; }}
+    .main .block-container {{ padding-top: 1.5rem; }}
 }}
 
-@media (max-width: 768px) {{
-    .big-title {{ font-size: 26px !important; }}
-    .subtitle {{ font-size: 14px !important; }}
-    .main .block-container {{ padding: 1rem; }}
-    .stApp {{ padding-bottom: env(safe-area-inset-bottom); }}
-}}
-
-* {{
-    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
-}}
+* {{ transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -300,9 +331,20 @@ if 'authenticated' not in st.session_state:
 if 'api_key' not in st.session_state:
     st.session_state.api_key = ""
 
-# ========== 标题 ==========
-st.markdown('<p class="big-title">🎙️ AI语音简报助手</p>', unsafe_allow_html=True)
-st.markdown('<p class="subtitle">语音直接转文字，自动生成简报</p>', unsafe_allow_html=True)
+# ========== 页头 + 三步流程 ==========
+st.markdown("""
+<div class="header-area">
+    <p class="big-title">🎙️ AI语音简报助手</p>
+    <p class="subtitle">语音直接转文字，自动生成中英双语简报</p>
+    <div class="steps-bar">
+        <span class="step-item">🎙️ 第一步：录音 / 上传</span>
+        <span class="step-arrow">›</span>
+        <span class="step-item">✏️ 第二步：编辑内容</span>
+        <span class="step-arrow">›</span>
+        <span class="step-item">✨ 第三步：生成双语简报</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 # ========== API 密钥管理 ==========
 def check_api_key():
@@ -627,38 +669,39 @@ with col2:
 
                 try:
                     client = get_openai_client(api_key)
+                    progress_bar = st.progress(0, text="🤖 正在生成中文版... (1/2)")
 
                     # 生成中文版
-                    with st.spinner("🤖 生成中文版..."):
-                        prompt_zh = prompts_zh[briefing_type]
-                        if custom_req:
-                            prompt_zh += f"。要求：{custom_req}"
-                        resp_zh = client.chat.completions.create(
-                            model=CONFIG['models']['generate'],
-                            messages=[
-                                {"role": "system", "content": prompt_zh},
-                                {"role": "user", "content": content}
-                            ],
-                            temperature=0.7,
-                            max_tokens=2000
-                        )
-                        st.session_state.generated_result_zh = resp_zh.choices[0].message.content
+                    prompt_zh = prompts_zh[briefing_type]
+                    if custom_req:
+                        prompt_zh += f"。要求：{custom_req}"
+                    resp_zh = client.chat.completions.create(
+                        model=CONFIG['models']['generate'],
+                        messages=[
+                            {"role": "system", "content": prompt_zh},
+                            {"role": "user", "content": content}
+                        ],
+                        temperature=0.7,
+                        max_tokens=2000
+                    )
+                    st.session_state.generated_result_zh = resp_zh.choices[0].message.content
+                    progress_bar.progress(50, text="🤖 Generating English version... (2/2)")
 
                     # 生成英文版
-                    with st.spinner("🤖 Generating English version..."):
-                        prompt_en = prompts_en[briefing_type]
-                        if custom_req:
-                            prompt_en += f". Requirements: {custom_req}"
-                        resp_en = client.chat.completions.create(
-                            model=CONFIG['models']['generate'],
-                            messages=[
-                                {"role": "system", "content": prompt_en},
-                                {"role": "user", "content": content}
-                            ],
-                            temperature=0.7,
-                            max_tokens=2000
-                        )
-                        st.session_state.generated_result_en = resp_en.choices[0].message.content
+                    prompt_en = prompts_en[briefing_type]
+                    if custom_req:
+                        prompt_en += f". Requirements: {custom_req}"
+                    resp_en = client.chat.completions.create(
+                        model=CONFIG['models']['generate'],
+                        messages=[
+                            {"role": "system", "content": prompt_en},
+                            {"role": "user", "content": content}
+                        ],
+                        temperature=0.7,
+                        max_tokens=2000
+                    )
+                    st.session_state.generated_result_en = resp_en.choices[0].message.content
+                    progress_bar.progress(100, text="✅ 双语简报生成完成！")
 
                 except Exception as e:
                     error_info = classify_error(e)
@@ -677,34 +720,46 @@ with col2:
                     del st.session_state[_k]
             st.rerun()
 
-    # ========== v2.5.0：中英文双语结果展示 + 分语言下载 ==========
+    # ========== v2.6.0：中英文双语结果展示 + 字数徽章 + 分语言下载 ==========
     if "generated_result_zh" in st.session_state or "generated_result_en" in st.session_state:
         st.divider()
-        st.success("✅ 双语简报生成完成！")
         tab_zh, tab_en = st.tabs(["🇨🇳 中文版", "🇬🇧 English Version"])
 
         with tab_zh:
             result_zh = st.session_state.get("generated_result_zh", "")
+            if result_zh:
+                st.markdown(
+                    f'<span class="stat-badge">📝 {len(result_zh)} 字</span>',
+                    unsafe_allow_html=True
+                )
             st.markdown(result_zh)
             st.download_button(
                 "📥 下载中文版",
                 result_zh,
                 file_name=f"简报_{briefing_type}.txt",
                 mime="text/plain",
-                key="dl_zh"
+                key="dl_zh",
+                use_container_width=True
             )
 
         with tab_en:
             result_en = st.session_state.get("generated_result_en", "")
+            if result_en:
+                word_count = len(result_en.split())
+                st.markdown(
+                    f'<span class="stat-badge">📝 ~{word_count} words</span>',
+                    unsafe_allow_html=True
+                )
             st.markdown(result_en)
             st.download_button(
                 "📥 Download English Version",
                 result_en,
                 file_name=f"Briefing_{briefing_type}.txt",
                 mime="text/plain",
-                key="dl_en"
+                key="dl_en",
+                use_container_width=True
             )
 
-# ========== v2.5.0：版本号引用 ==========
+# ========== v2.6.0：版本号引用 ==========
 st.divider()
-st.caption(f"Made with ❤️ | PWA版 v{CONFIG['version']} - 双语简报，随时下载")
+st.caption(f"Made with ❤️ | PWA v{CONFIG['version']} · AI语音简报助手")
