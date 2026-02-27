@@ -1,13 +1,11 @@
 import streamlit as st
-import streamlit.components.v1 as components
 from openai import OpenAI
 import os
 import tempfile
 import json
-import base64
 
-# ========== v2.9.1 修复：script 标签被 Streamlit 剥离，改用 components.html ==========
-VERSION = "2.9.1"
+# ========== v3.0.0：用 st.code() 原生复制按钮替代 JS 导出（彻底解决 iOS PWA 问题）==========
+VERSION = "3.0.0"
 
 CONFIG = {
     "version": VERSION,
@@ -599,109 +597,23 @@ def translate_zh_to_en(zh_text: str, briefing_type: str, api_key: str) -> dict:
         return {"success": False, **error_info, "error_raw": str(e)}
 
 
-# ========== v2.9.1：iOS PWA 兼容导出按钮（用 components.html 执行 JS）==========
-def make_export_button(content: str, filename: str, label: str, key: str):
+# ========== v3.0.0：导出区块（st.code 原生复制 + st.download_button）==========
+def show_export_section(content: str, filename: str, label_copy: str, label_dl: str, key: str):
     """
-    iOS PWA 兼容导出按钮，使用 components.html() 确保 JS 被执行。
-    优先级：
-      iOS PWA → 剪贴板复制（最可靠，不触发导航）
-      其他    → Web Share API → Blob 下载 → 剪贴板兜底
+    iOS PWA 安全导出区块：
+    - st.code() 右上角原生复制按钮（无 JS，iOS PWA / 桌面均可用）
+    - st.download_button 供桌面下载文件
     """
-    content_b64 = base64.b64encode(content.encode("utf-8")).decode("ascii")
-    safe_filename = filename.replace("'", "_").replace('"', "_")
-
-    html = f"""
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"></head>
-<body style="margin:0;padding:0;background:transparent;">
-<button id="btn"
-  onclick="doExport()"
-  style="
-    width:100%; padding:9px 16px; border-radius:10px;
-    background:transparent;
-    color:#FF6B6B;
-    border:1.5px solid #FF6B6B;
-    font-weight:600; font-size:14px; cursor:pointer;
-    touch-action:manipulation; -webkit-appearance:none;
-    font-family: -apple-system, sans-serif;
-  ">
-  {label}
-</button>
-<div id="msg" style="font-size:12px;color:#30d158;text-align:center;margin-top:5px;min-height:16px;"></div>
-
-<script>
-const B64 = '{content_b64}';
-const FILENAME = '{safe_filename}';
-
-function decodeContent() {{
-  const bytes = Uint8Array.from(atob(B64), c => c.charCodeAt(0));
-  return new TextDecoder('utf-8').decode(bytes);
-}}
-
-function showMsg(text, color) {{
-  const m = document.getElementById('msg');
-  m.style.color = color || '#30d158';
-  m.textContent = text;
-  setTimeout(() => m.textContent = '', 3500);
-}}
-
-async function doExport() {{
-  const text = decodeContent();
-
-  // iOS PWA 检测：独立模式下优先走剪贴板，避免任何导航行为
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-  const isPWA = window.navigator.standalone === true
-             || window.matchMedia('(display-mode: standalone)').matches;
-
-  if (isIOS && isPWA) {{
-    try {{
-      await navigator.clipboard.writeText(text);
-      showMsg('✅ 已复制！粘贴到备忘录 / 邮件等应用即可');
-      return;
-    }} catch(e) {{}}
-  }}
-
-  // Web Share API（支持的浏览器 / 非 PWA iOS）
-  if (navigator.share) {{
-    try {{
-      const blob = new Blob([text], {{type: 'text/plain;charset=utf-8'}});
-      const file = new File([blob], FILENAME, {{type: 'text/plain'}});
-      const data = (navigator.canShare && navigator.canShare({{files: [file]}}))
-        ? {{files: [file], title: FILENAME}}
-        : {{title: FILENAME, text: text}};
-      await navigator.share(data);
-      return;
-    }} catch(e) {{
-      if (e.name === 'AbortError') return;
-    }}
-  }}
-
-  // Blob 下载（桌面浏览器）
-  try {{
-    const blob = new Blob([text], {{type: 'text/plain;charset=utf-8'}});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = FILENAME;
-    document.body.appendChild(a); a.click();
-    document.body.removeChild(a); URL.revokeObjectURL(url);
-    showMsg('✅ 已下载');
-    return;
-  }} catch(e) {{}}
-
-  // 终极兜底：剪贴板
-  try {{
-    await navigator.clipboard.writeText(text);
-    showMsg('✅ 已复制到剪贴板');
-  }} catch(e) {{
-    showMsg('请长按文本手动复制', '#ff9f0a');
-  }}
-}}
-</script>
-</body>
-</html>
-"""
-    components.html(html, height=80)
+    st.caption(f"📋 {label_copy} — 点击右上角复制图标即可复制全文")
+    st.code(content, language=None)
+    st.download_button(
+        label=f"💾 {label_dl}",
+        data=content.encode("utf-8"),
+        file_name=filename,
+        mime="text/plain",
+        use_container_width=True,
+        key=f"dl_{key}"
+    )
 
 
 # ========== 主界面 ==========
@@ -927,12 +839,14 @@ with col2:
 
             col_dl_zh, col_retrans = st.columns([1, 1])
             with col_dl_zh:
-                make_export_button(
-                    content=st.session_state.get("zh_edit_content", ""),
-                    filename=f"简报_{briefing_type}.txt",
-                    label="📤 导出中文版",
-                    key="zh"
-                )
+                with st.expander("📤 导出中文版", expanded=False):
+                    show_export_section(
+                        content=st.session_state.get("zh_edit_content", ""),
+                        filename=f"简报_{briefing_type}.txt",
+                        label_copy="复制全文",
+                        label_dl="下载 .txt 文件（桌面）",
+                        key="zh"
+                    )
             with col_retrans:
                 if st.button("🔄 重新翻译英文", key="retranslate_btn", use_container_width=True,
                              help="根据当前中文内容重新生成英文版"):
@@ -959,13 +873,15 @@ with col2:
                 )
             st.markdown(result_en if result_en else "_英文版尚未生成，请切换到中文 Tab 点击「重新翻译英文」_")
             if result_en:
-                make_export_button(
-                    content=result_en,
-                    filename=f"Briefing_{briefing_type}.txt",
-                    label="📤 Export English Version",
-                    key="en"
-                )
+                with st.expander("📤 Export English Version", expanded=False):
+                    show_export_section(
+                        content=result_en,
+                        filename=f"Briefing_{briefing_type}.txt",
+                        label_copy="Copy all text",
+                        label_dl="Download .txt (Desktop)",
+                        key="en"
+                    )
 
-# ========== v2.9.1：版本号引用 ==========
+# ========== v3.0.0：版本号 ==========
 st.divider()
 st.caption(f"Made with ❤️ | PWA v{CONFIG['version']} · AI语音简报助手")
