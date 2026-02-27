@@ -1,11 +1,13 @@
 import streamlit as st
+import streamlit.components.v1 as components
 from openai import OpenAI
 import os
 import tempfile
 import json
+import base64
 
-# ========== v2.9.0 升级：修复 iOS PWA 下载后无法返回问题 ==========
-VERSION = "2.9.0"
+# ========== v2.9.1 修复：script 标签被 Streamlit 剥离，改用 components.html ==========
+VERSION = "2.9.1"
 
 CONFIG = {
     "version": VERSION,
@@ -597,86 +599,109 @@ def translate_zh_to_en(zh_text: str, briefing_type: str, api_key: str) -> dict:
         return {"success": False, **error_info, "error_raw": str(e)}
 
 
-# ========== v2.9.0：iOS PWA 兼容导出按钮 ==========
+# ========== v2.9.1：iOS PWA 兼容导出按钮（用 components.html 执行 JS）==========
 def make_export_button(content: str, filename: str, label: str, key: str):
     """
-    iOS PWA 兼容的导出按钮。
-    优先级：Web Share API（iOS 原生分享）→ Blob 下载（桌面）→ 剪贴板复制（兜底）
+    iOS PWA 兼容导出按钮，使用 components.html() 确保 JS 被执行。
+    优先级：
+      iOS PWA → 剪贴板复制（最可靠，不触发导航）
+      其他    → Web Share API → Blob 下载 → 剪贴板兜底
     """
-    import base64
-    # base64 编码 UTF-8 内容，安全嵌入 JS
     content_b64 = base64.b64encode(content.encode("utf-8")).decode("ascii")
-    btn_id = f"ebtn_{key}"
-    msg_id = f"emsg_{key}"
-    safe_filename = filename.replace("'", "_")
+    safe_filename = filename.replace("'", "_").replace('"', "_")
 
     html = f"""
-<div style="width:100%;margin-top:4px;">
-  <button id="{btn_id}"
-    onclick="exportContent_{key}()"
-    style="
-      width:100%; padding:8px 16px; border-radius:10px;
-      background:transparent;
-      color:var(--accent-color,#FF6B6B);
-      border:1.5px solid var(--accent-color,#FF6B6B);
-      font-weight:600; font-size:14px; cursor:pointer;
-      touch-action:manipulation; -webkit-appearance:none;
-      transition: background 0.15s, color 0.15s;
-    "
-    onmouseover="this.style.background='var(--accent-color,#FF6B6B)';this.style.color='#fff'"
-    onmouseout="this.style.background='transparent';this.style.color='var(--accent-color,#FF6B6B)'">
-    {label}
-  </button>
-  <div id="{msg_id}" style="font-size:12px;color:#30d158;text-align:center;margin-top:4px;min-height:16px;"></div>
-</div>
-<script>
-async function exportContent_{key}() {{
-  const b64 = '{content_b64}';
-  const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-  const text = new TextDecoder('utf-8').decode(bytes);
-  const filename = '{safe_filename}';
-  const msg = document.getElementById('{msg_id}');
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:transparent;">
+<button id="btn"
+  onclick="doExport()"
+  style="
+    width:100%; padding:9px 16px; border-radius:10px;
+    background:transparent;
+    color:#FF6B6B;
+    border:1.5px solid #FF6B6B;
+    font-weight:600; font-size:14px; cursor:pointer;
+    touch-action:manipulation; -webkit-appearance:none;
+    font-family: -apple-system, sans-serif;
+  ">
+  {label}
+</button>
+<div id="msg" style="font-size:12px;color:#30d158;text-align:center;margin-top:5px;min-height:16px;"></div>
 
-  // 1. Web Share API（iOS PWA 原生分享，不离开 App）
+<script>
+const B64 = '{content_b64}';
+const FILENAME = '{safe_filename}';
+
+function decodeContent() {{
+  const bytes = Uint8Array.from(atob(B64), c => c.charCodeAt(0));
+  return new TextDecoder('utf-8').decode(bytes);
+}}
+
+function showMsg(text, color) {{
+  const m = document.getElementById('msg');
+  m.style.color = color || '#30d158';
+  m.textContent = text;
+  setTimeout(() => m.textContent = '', 3500);
+}}
+
+async function doExport() {{
+  const text = decodeContent();
+
+  // iOS PWA 检测：独立模式下优先走剪贴板，避免任何导航行为
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isPWA = window.navigator.standalone === true
+             || window.matchMedia('(display-mode: standalone)').matches;
+
+  if (isIOS && isPWA) {{
+    try {{
+      await navigator.clipboard.writeText(text);
+      showMsg('✅ 已复制！粘贴到备忘录 / 邮件等应用即可');
+      return;
+    }} catch(e) {{}}
+  }}
+
+  // Web Share API（支持的浏览器 / 非 PWA iOS）
   if (navigator.share) {{
     try {{
       const blob = new Blob([text], {{type: 'text/plain;charset=utf-8'}});
-      const file = new File([blob], filename, {{type: 'text/plain'}});
+      const file = new File([blob], FILENAME, {{type: 'text/plain'}});
       const data = (navigator.canShare && navigator.canShare({{files: [file]}}))
-        ? {{files: [file], title: filename}}
-        : {{title: filename, text: text}};
+        ? {{files: [file], title: FILENAME}}
+        : {{title: FILENAME, text: text}};
       await navigator.share(data);
       return;
     }} catch(e) {{
-      if (e.name === 'AbortError') return; // 用户取消，不继续
+      if (e.name === 'AbortError') return;
     }}
   }}
 
-  // 2. Blob 下载（桌面浏览器）
+  // Blob 下载（桌面浏览器）
   try {{
     const blob = new Blob([text], {{type: 'text/plain;charset=utf-8'}});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = filename;
+    a.href = url; a.download = FILENAME;
     document.body.appendChild(a); a.click();
     document.body.removeChild(a); URL.revokeObjectURL(url);
-    msg.textContent = '✅ 已下载';
-    setTimeout(() => msg.textContent = '', 3000);
+    showMsg('✅ 已下载');
     return;
   }} catch(e) {{}}
 
-  // 3. 复制到剪贴板（兜底）
+  // 终极兜底：剪贴板
   try {{
     await navigator.clipboard.writeText(text);
-    msg.textContent = '✅ 已复制到剪贴板';
-    setTimeout(() => msg.textContent = '', 3000);
+    showMsg('✅ 已复制到剪贴板');
   }} catch(e) {{
-    msg.textContent = '请手动复制内容';
+    showMsg('请长按文本手动复制', '#ff9f0a');
   }}
 }}
 </script>
+</body>
+</html>
 """
-    st.markdown(html, unsafe_allow_html=True)
+    components.html(html, height=80)
 
 
 # ========== 主界面 ==========
@@ -941,6 +966,6 @@ with col2:
                     key="en"
                 )
 
-# ========== v2.9.0：版本号引用 ==========
+# ========== v2.9.1：版本号引用 ==========
 st.divider()
 st.caption(f"Made with ❤️ | PWA v{CONFIG['version']} · AI语音简报助手")
