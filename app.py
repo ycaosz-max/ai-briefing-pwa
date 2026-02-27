@@ -4,8 +4,8 @@ import os
 import tempfile
 import json
 
-# ========== v2.3.1 升级：版本号与配置集中管理 ==========
-VERSION = "2.3.1"
+# ========== v2.4.0 升级：新增英文输出功能 ==========
+VERSION = "2.4.0"
 
 CONFIG = {
     "version": VERSION,
@@ -591,6 +591,13 @@ with col2:
         ["会议纪要", "工作日报", "学习笔记", "新闻摘要"],
         key="briefing_type"
     )
+
+    output_lang = st.radio(
+        "输出语言 / Output Language",
+        ["中文", "English"],
+        horizontal=True,
+        key="output_lang"
+    )
     
     default_text = st.session_state.get("transcribed_text", "")
     
@@ -617,12 +624,19 @@ with col2:
                         # v2.3.1 升级：使用统一客户端
                         client = get_openai_client(api_key)
                         
-                        prompts = {
+                        prompts_zh = {
                             "会议纪要": "整理成会议纪要：1主题 2讨论 3决议 4待办",
                             "工作日报": "整理成工作日报：1完成 2问题 3计划",
                             "学习笔记": "整理成学习笔记：1概念 2重点 3思考",
                             "新闻摘要": "整理成新闻摘要：1事件 2数据 3影响"
                         }
+                        prompts_en = {
+                            "会议纪要": "Organize into meeting minutes in English: 1.Topic 2.Discussion Points 3.Decisions 4.Action Items",
+                            "工作日报": "Organize into a daily work report in English: 1.Completed Tasks 2.Issues 3.Tomorrow's Plan",
+                            "学习笔记": "Organize into study notes in English: 1.Core Concepts 2.Key Points 3.Reflections",
+                            "新闻摘要": "Organize into a news summary in English: 1.Core Event 2.Key Data 3.Impact Analysis"
+                        }
+                        prompts = prompts_en if output_lang == "English" else prompts_zh
                         
                         prompt = prompts[briefing_type]
                         if custom_req:
@@ -663,9 +677,9 @@ with col2:
         st.success("✅ 生成完成！")
         st.markdown(st.session_state.generated_result)
         st.download_button(
-            "📋 下载",
+            "📋 下载 / Download",
             st.session_state.generated_result,
-            file_name=f"简报_{briefing_type}.txt",
+            file_name=f"{'Briefing' if output_lang == 'English' else '简报'}_{briefing_type}.txt",
             mime="text/plain"
         )
 
