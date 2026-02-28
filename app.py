@@ -4,8 +4,8 @@ import os
 import tempfile
 import json
 
-# ========== v3.0.0：用 st.code() 原生复制按钮替代 JS 导出（彻底解决 iOS PWA 问题）==========
-VERSION = "3.0.0"
+# ========== v3.1.0：流式输出 + 提示词升级 ==========
+VERSION = "3.1.0"
 
 CONFIG = {
     "version": VERSION,
@@ -566,35 +566,64 @@ def transcribe_audio(audio_bytes: bytes, api_key: str) -> dict:
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
 
-# ========== v2.8.0：中文→英文翻译函数 ==========
-def translate_zh_to_en(zh_text: str, briefing_type: str, api_key: str) -> dict:
-    type_map = {
-        "会议纪要": "meeting minutes",
-        "工作日报": "daily work report",
-        "学习笔记": "study notes",
-        "新闻摘要": "news summary",
-    }
-    en_type = type_map.get(briefing_type, "briefing")
-    system_prompt = (
-        f"You are a professional translator. Translate the following Chinese {en_type} "
-        f"into natural, professional English. Preserve the exact structure, all headings, "
-        f"bullet points, and every detail. Do not add, omit, or paraphrase any content."
+# ========== v3.1.0：共用提示词 & 流式辅助函数 ==========
+
+PROMPTS_ZH = {
+    "会议纪要": (
+        "你是一名专业的会议记录员。请将以下录音文字整理为结构化会议纪要，使用 Markdown 格式，"
+        "包含以下部分：\n## 会议主题\n## 主要讨论要点\n## 达成的决议\n## 待办事项与跟进（如有）\n"
+        "要求：语言简洁精准，保留所有关键数据、人名和具体细节，不做无关补充。"
+    ),
+    "工作日报": (
+        "你是一名专业的项目助理。请将以下工作汇报整理为结构化工作日报，使用 Markdown 格式，"
+        "包含以下部分：\n## 今日完成事项\n## 遇到的问题与解决方案\n## 明日工作计划\n"
+        "要求：条目清晰，每项注明完成情况或具体内容，保留所有关键细节。"
+    ),
+    "学习笔记": (
+        "你是一名知识整理专家。请将以下学习内容整理为结构化笔记，使用 Markdown 格式，"
+        "包含以下部分：\n## 核心概念\n## 重点知识与关键内容\n## 思考与启发（如有）\n"
+        "要求：逻辑清晰，知识点分层呈现，保留原文中的案例、数据和重要例子。"
+    ),
+    "新闻摘要": (
+        "你是一名专业的新闻编辑。请将以下新闻内容整理为结构化摘要，使用 Markdown 格式，"
+        "包含以下部分：\n## 事件概述\n## 关键数据与细节\n## 影响与分析\n"
+        "要求：客观中立，保留所有关键数字和专有名词，语言简洁专业。"
+    ),
+}
+
+EN_TYPE_MAP = {
+    "会议纪要": "meeting minutes",
+    "工作日报": "daily work report",
+    "学习笔记": "study notes",
+    "新闻摘要": "news summary",
+}
+
+def get_translate_prompt(briefing_type: str) -> str:
+    en_type = EN_TYPE_MAP.get(briefing_type, "briefing")
+    return (
+        f"You are an expert professional translator specializing in business documents. "
+        f"Translate the following Chinese {en_type} into natural, idiomatic English.\n"
+        f"Rules:\n"
+        f"- Preserve the exact Markdown structure (all headers, bullet points, numbering)\n"
+        f"- Keep all proper nouns, numbers, and specific details intact\n"
+        f"- Use professional language appropriate for {en_type}\n"
+        f"- Do NOT add commentary, explanations, or extra content\n"
+        f"- Translate only; do not summarize or interpret"
     )
-    try:
-        client = get_openai_client(api_key)
-        resp = client.chat.completions.create(
-            model=CONFIG['models']['generate'],
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": zh_text},
-            ],
-            temperature=0.3,
-            max_tokens=3000,
-        )
-        return {"success": True, "text": resp.choices[0].message.content}
-    except Exception as e:
-        error_info = classify_error(e)
-        return {"success": False, **error_info, "error_raw": str(e)}
+
+def stream_completion(client, messages: list, temperature: float, max_tokens: int):
+    """OpenAI 流式响应生成器，供 st.write_stream() 消费。"""
+    resp = client.chat.completions.create(
+        model=CONFIG['models']['generate'],
+        messages=messages,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        stream=True,
+    )
+    for chunk in resp:
+        delta = chunk.choices[0].delta
+        if delta.content is not None:
+            yield delta.content
 
 
 # ========== v3.0.0：导出区块（st.code 原生复制 + st.download_button）==========
@@ -758,43 +787,43 @@ with col2:
             if not content.strip():
                 st.error("❌ 内容不能为空")
             else:
-                prompts_zh = {
-                    "会议纪要": "整理成会议纪要：1主题 2讨论 3决议 4待办",
-                    "工作日报": "整理成工作日报：1完成 2问题 3计划",
-                    "学习笔记": "整理成学习笔记：1概念 2重点 3思考",
-                    "新闻摘要": "整理成新闻摘要：1事件 2数据 3影响"
-                }
                 try:
                     client = get_openai_client(api_key)
-                    progress_bar = st.progress(0, text="🤖 第 1 步：生成中文简报...")
 
-                    # Step 1：生成中文简报
-                    prompt_zh = prompts_zh[briefing_type]
+                    # Step 1：流式生成中文简报
+                    prompt_zh = PROMPTS_ZH[briefing_type]
                     if custom_req:
-                        prompt_zh += f"。要求：{custom_req}"
-                    resp_zh = client.chat.completions.create(
-                        model=CONFIG['models']['generate'],
-                        messages=[
-                            {"role": "system", "content": prompt_zh},
-                            {"role": "user", "content": content}
-                        ],
-                        temperature=0.7,
-                        max_tokens=2000
-                    )
-                    zh_result = resp_zh.choices[0].message.content
+                        prompt_zh += f"\n\n额外要求：{custom_req}"
+                    with st.status("🤖 第 1 步：生成中文简报…", expanded=True) as s1:
+                        zh_result = st.write_stream(stream_completion(
+                            client,
+                            [{"role": "system", "content": prompt_zh},
+                             {"role": "user", "content": content}],
+                            temperature=0.7,
+                            max_tokens=2000,
+                        ))
+                        s1.update(
+                            label=f"✅ 中文简报完成（{len(zh_result)} 字）",
+                            state="complete", expanded=False
+                        )
                     st.session_state.generated_result_zh = zh_result
-                    # 重置编辑器内容
                     st.session_state.zh_edit_content = zh_result
-                    progress_bar.progress(50, text="🌐 第 2 步：翻译为英文...")
 
-                    # Step 2：翻译中文 → 英文（保证对齐）
-                    en_result = translate_zh_to_en(zh_result, briefing_type, api_key)
-                    if en_result["success"]:
-                        st.session_state.generated_result_en = en_result["text"]
-                        progress_bar.progress(100, text="✅ 双语简报生成完成！")
-                    else:
-                        progress_bar.progress(100, text="⚠️ 翻译失败，中文版已生成")
-                        st.warning(f"英文翻译失败：{en_result.get('message', '')}，可稍后手动点击「重新翻译英文」")
+                    # Step 2：流式翻译英文
+                    with st.status("🌐 第 2 步：翻译为英文…", expanded=True) as s2:
+                        en_result = st.write_stream(stream_completion(
+                            client,
+                            [{"role": "system", "content": get_translate_prompt(briefing_type)},
+                             {"role": "user", "content": zh_result}],
+                            temperature=0.3,
+                            max_tokens=3000,
+                        ))
+                        s2.update(
+                            label=f"✅ 翻译完成（~{len(en_result.split())} words）",
+                            state="complete", expanded=False
+                        )
+                    st.session_state.generated_result_en = en_result
+                    st.rerun()
 
                 except Exception as e:
                     error_info = classify_error(e)
@@ -813,7 +842,7 @@ with col2:
                     del st.session_state[_k]
             st.rerun()
 
-    # ========== v2.8.0：中文可编辑 + 一键重新翻译英文 ==========
+    # ========== v3.1.0：结果展示 ==========
     if "generated_result_zh" in st.session_state or "generated_result_en" in st.session_state:
         st.divider()
         tab_zh, tab_en = st.tabs(["🇨🇳 中文版（可编辑）", "🇬🇧 English Version"])
@@ -854,14 +883,25 @@ with col2:
                     if not edited_zh.strip():
                         st.error("中文内容为空，无法翻译")
                     else:
-                        with st.spinner("🌐 翻译中，请稍候..."):
-                            en_result = translate_zh_to_en(edited_zh, briefing_type, api_key)
-                        if en_result["success"]:
-                            st.session_state.generated_result_en = en_result["text"]
-                            st.success("✅ 英文版已同步更新，请切换到英文 Tab 查看")
+                        try:
+                            client = get_openai_client(api_key)
+                            with st.status("🌐 翻译中…", expanded=True) as sr:
+                                en_result = st.write_stream(stream_completion(
+                                    client,
+                                    [{"role": "system", "content": get_translate_prompt(briefing_type)},
+                                     {"role": "user", "content": edited_zh}],
+                                    temperature=0.3,
+                                    max_tokens=3000,
+                                ))
+                                sr.update(
+                                    label=f"✅ 翻译完成（~{len(en_result.split())} words）",
+                                    state="complete", expanded=False
+                                )
+                            st.session_state.generated_result_en = en_result
                             st.rerun()
-                        else:
-                            st.error(f"{en_result.get('title', '翻译失败')}：{en_result.get('message', '')}")
+                        except Exception as e:
+                            error_info = classify_error(e)
+                            st.error(f"{error_info['title']}：{error_info['message']}")
 
         with tab_en:
             result_en = st.session_state.get("generated_result_en", "")
@@ -882,6 +922,6 @@ with col2:
                         key="en"
                     )
 
-# ========== v3.0.0：版本号 ==========
+# ========== v3.1.0：版本号 ==========
 st.divider()
 st.caption(f"Made with ❤️ | PWA v{CONFIG['version']} · AI语音简报助手")
