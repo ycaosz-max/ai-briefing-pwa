@@ -5,8 +5,8 @@ import tempfile
 import json
 from datetime import datetime
 
-# ========== v3.5.0：精简界面、自动转写、隐藏提示 ==========
-VERSION = "3.5.0"
+# ========== v3.6.0：先生成中文，再按需生成英文 ==========
+VERSION = "3.6.0"
 
 CONFIG = {
     "version": VERSION,
@@ -726,9 +726,10 @@ with col1:
         from streamlit_mic_recorder import mic_recorder
         
         audio = mic_recorder(
-            start_prompt="🎙️ 点击录音",
-            stop_prompt="⏹️ 点击停止",
+            start_prompt="🎙️ 开始录音",
+            stop_prompt="⏹️ 停止录音",
             just_once=True,
+            use_container_width=True,
             key="mic_recorder_ios_v2"
         )
         
@@ -848,18 +849,16 @@ with col2:
     
     col_gen, col_clear = st.columns([3, 1])
     with col_gen:
-        if st.button("✨ 生成简报（中英双语）", type="primary", use_container_width=True):
+        if st.button("✨ 生成简报", type="primary", use_container_width=True):
             if not content.strip():
                 st.error("❌ 内容不能为空")
             else:
                 try:
                     client = get_openai_client(api_key)
-
-                    # Step 1：流式生成中文简报
                     prompt_zh = PROMPTS_ZH[briefing_type]
                     if custom_req:
                         prompt_zh += f"\n\n额外要求：{custom_req}"
-                    with st.status("🤖 第 1 步：生成中文简报…", expanded=True) as s1:
+                    with st.status("🤖 生成中文简报…", expanded=True) as s1:
                         zh_result = st.write_stream(stream_completion(
                             client,
                             [{"role": "system", "content": prompt_zh},
@@ -868,28 +867,14 @@ with col2:
                             max_tokens=2000,
                         ))
                         s1.update(
-                            label=f"✅ 中文简报完成（{len(zh_result)} 字）",
+                            label=f"✅ 完成（{len(zh_result)} 字）",
                             state="complete", expanded=False
                         )
                     st.session_state.generated_result_zh = zh_result
                     st.session_state.zh_edit_content = zh_result
-
-                    # Step 2：流式翻译英文
-                    with st.status("🌐 第 2 步：翻译为英文…", expanded=True) as s2:
-                        en_result = st.write_stream(stream_completion(
-                            client,
-                            [{"role": "system", "content": get_translate_prompt(briefing_type)},
-                             {"role": "user", "content": zh_result}],
-                            temperature=0.3,
-                            max_tokens=3000,
-                        ))
-                        s2.update(
-                            label=f"✅ 翻译完成（~{len(en_result.split())} words）",
-                            state="complete", expanded=False
-                        )
-                    st.session_state.generated_result_en = en_result
+                    if "generated_result_en" in st.session_state:
+                        del st.session_state["generated_result_en"]
                     st.rerun()
-
                 except Exception as e:
                     error_info = classify_error(e)
                     st.error(f"{error_info['title']}：{error_info['message']}")
@@ -908,84 +893,72 @@ with col2:
                     del st.session_state[_k]
             st.rerun()
 
-    # ========== v3.1.0：结果展示 ==========
-    if "generated_result_zh" in st.session_state or "generated_result_en" in st.session_state:
+    # ========== 结果展示：中文优先，英文按需 ==========
+    if "generated_result_zh" in st.session_state:
         st.divider()
-        tab_zh, tab_en = st.tabs(["🇨🇳 中文版（可编辑）", "🇬🇧 English Version"])
 
-        with tab_zh:
-            if "zh_edit_content" not in st.session_state:
-                st.session_state.zh_edit_content = st.session_state.get("generated_result_zh", "")
+        # 中文编辑区
+        if "zh_edit_content" not in st.session_state:
+            st.session_state.zh_edit_content = st.session_state.get("generated_result_zh", "")
+        current_zh = st.session_state.get("zh_edit_content", "")
+        if current_zh:
+            st.markdown(f'<span class="stat-badge">📝 {len(current_zh)} 字</span>', unsafe_allow_html=True)
+        st.text_area("编辑中文简报", key="zh_edit_content", height=340, label_visibility="collapsed")
 
-            current_zh = st.session_state.get("zh_edit_content", "")
-            if current_zh:
-                st.markdown(
-                    f'<span class="stat-badge">📝 {len(current_zh)} 字</span>',
-                    unsafe_allow_html=True
+        col_dl_zh, col_en_btn = st.columns([1, 1])
+        with col_dl_zh:
+            with st.expander("📤 导出中文版", expanded=False):
+                show_export_section(
+                    content=st.session_state.get("zh_edit_content", ""),
+                    filename=f"简报_{briefing_type}.md",
+                    label_copy="复制全文",
+                    label_dl="下载 .md 文件",
+                    key="zh"
                 )
+        with col_en_btn:
+            en_btn_label = "🌐 重新生成英文版" if "generated_result_en" in st.session_state else "🌐 生成英文版"
+            if st.button(en_btn_label, use_container_width=True, key="translate_btn"):
+                edited_zh = st.session_state.get("zh_edit_content", "")
+                if not edited_zh.strip():
+                    st.error("中文内容为空")
+                else:
+                    try:
+                        client = get_openai_client(api_key)
+                        with st.status("🌐 翻译为英文…", expanded=True) as sr:
+                            en_result = st.write_stream(stream_completion(
+                                client,
+                                [{"role": "system", "content": get_translate_prompt(briefing_type)},
+                                 {"role": "user", "content": edited_zh}],
+                                temperature=0.3,
+                                max_tokens=3000,
+                            ))
+                            sr.update(
+                                label=f"✅ 翻译完成（~{len(en_result.split())} words）",
+                                state="complete", expanded=False
+                            )
+                        st.session_state.generated_result_en = en_result
+                        st.rerun()
+                    except Exception as e:
+                        error_info = classify_error(e)
+                        st.error(f"{error_info['title']}：{error_info['message']}")
 
-            st.text_area(
-                "编辑中文简报",
-                key="zh_edit_content",
-                height=380,
-                help="可直接编辑中文内容，修改后点击下方「重新翻译英文」同步更新英文版"
+        # 英文结果（仅在用户主动生成后显示）
+        if "generated_result_en" in st.session_state:
+            st.divider()
+            result_en = st.session_state["generated_result_en"]
+            st.markdown(
+                f'<span class="stat-badge">📝 ~{len(result_en.split())} words</span>',
+                unsafe_allow_html=True
             )
-
-            col_dl_zh, col_retrans = st.columns([1, 1])
-            with col_dl_zh:
-                with st.expander("📤 导出中文版", expanded=False):
-                    show_export_section(
-                        content=st.session_state.get("zh_edit_content", ""),
-                        filename=f"简报_{briefing_type}.md",
-                        label_copy="复制全文",
-                        label_dl="下载 .md 文件（桌面）",
-                        key="zh"
-                    )
-            with col_retrans:
-                if st.button("🔄 重新翻译英文", key="retranslate_btn", use_container_width=True,
-                             help="根据当前中文内容重新生成英文版"):
-                    edited_zh = st.session_state.get("zh_edit_content", "")
-                    if not edited_zh.strip():
-                        st.error("中文内容为空，无法翻译")
-                    else:
-                        try:
-                            client = get_openai_client(api_key)
-                            with st.status("🌐 翻译中…", expanded=True) as sr:
-                                en_result = st.write_stream(stream_completion(
-                                    client,
-                                    [{"role": "system", "content": get_translate_prompt(briefing_type)},
-                                     {"role": "user", "content": edited_zh}],
-                                    temperature=0.3,
-                                    max_tokens=3000,
-                                ))
-                                sr.update(
-                                    label=f"✅ 翻译完成（~{len(en_result.split())} words）",
-                                    state="complete", expanded=False
-                                )
-                            st.session_state.generated_result_en = en_result
-                            st.rerun()
-                        except Exception as e:
-                            error_info = classify_error(e)
-                            st.error(f"{error_info['title']}：{error_info['message']}")
-
-        with tab_en:
-            result_en = st.session_state.get("generated_result_en", "")
-            if result_en:
-                word_count = len(result_en.split())
-                st.markdown(
-                    f'<span class="stat-badge">📝 ~{word_count} words</span>',
-                    unsafe_allow_html=True
+            st.markdown(result_en)
+            with st.expander("📤 Export English Version", expanded=False):
+                show_export_section(
+                    content=result_en,
+                    filename=f"Briefing_{briefing_type}.md",
+                    label_copy="Copy all text",
+                    label_dl="Download .md",
+                    key="en"
                 )
-            st.markdown(result_en if result_en else "_英文版尚未生成，请切换到中文 Tab 点击「重新翻译英文」_")
-            if result_en:
-                with st.expander("📤 Export English Version", expanded=False):
-                    show_export_section(
-                        content=result_en,
-                        filename=f"Briefing_{briefing_type}.md",
-                        label_copy="Copy all text",
-                        label_dl="Download .md (Desktop)",
-                        key="en"
-                    )
 
 # ========== 版本号 ==========
 st.divider()
