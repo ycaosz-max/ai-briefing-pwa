@@ -388,17 +388,21 @@ hr {{ border-color: var(--border-color) !important; }}
 
 /* ========== st.code() → 纯复制按钮（隐藏文本内容）========== */
 [data-testid="stCode"] pre {{
-    display: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    margin: 0 !important;
 }}
-[data-testid="stCode"] > div {{
+[data-testid="stCode"] {{
+    position: relative !important;
     min-height: 2.75rem !important;
     background: rgba(255, 107, 107, 0.06) !important;
     border: 1.5px solid var(--accent-color) !important;
     border-radius: 10px !important;
-    position: relative !important;
-    padding: 0 !important;
+    overflow: visible !important;
 }}
-[data-testid="stCode"] > div::before {{
+[data-testid="stCode"]::before {{
     content: "📋  点击复制全文";
     position: absolute;
     left: 14px;
@@ -408,6 +412,11 @@ hr {{ border-color: var(--border-color) !important; }}
     font-size: 14px;
     font-weight: 600;
     pointer-events: none;
+}}
+[data-testid="stCode"] button {{
+    opacity: 1 !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
 }}
 
 /* ========== 文件上传：只显示一个按钮 ========== */
@@ -421,6 +430,7 @@ hr {{ border-color: var(--border-color) !important; }}
 }}
 [data-testid="stFileUploaderDropzone"] button {{
     width: 100% !important;
+    min-height: 46px !important;
     background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-hover) 100%) !important;
     color: white !important;
     border: none !important;
