@@ -5,8 +5,8 @@ import tempfile
 import json
 from datetime import datetime
 
-# ========== v3.4.0：AI 智能识别简报类型 ==========
-VERSION = "3.4.0"
+# ========== v3.5.0：精简界面、自动转写、隐藏提示 ==========
+VERSION = "3.5.0"
 
 CONFIG = {
     "version": VERSION,
@@ -393,23 +393,23 @@ if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
 if 'api_key' not in st.session_state:
     st.session_state.api_key = ""
-if 'history' not in st.session_state:
-    st.session_state.history = []
 
 # ========== 页头 + 三步流程 ==========
 st.markdown("""
 <div class="header-area">
     <p class="big-title">🎙️ AI语音简报助手</p>
     <p class="subtitle">语音直接转文字，自动生成中英双语简报</p>
-    <div class="steps-bar">
-        <span class="step-item">🎙️ 第一步：录音 / 上传</span>
-        <span class="step-arrow">›</span>
-        <span class="step-item">✏️ 第二步：编辑内容</span>
-        <span class="step-arrow">›</span>
-        <span class="step-item">✨ 第三步：生成双语简报</span>
-    </div>
 </div>
 """, unsafe_allow_html=True)
+
+with st.expander("💡 使用说明", expanded=False):
+    st.markdown(
+        "**三步完成简报：**\n"
+        "- 🎙️ **第一步**：实时录音 或 上传录音文件（上传后自动转写）\n"
+        "- ✏️ **第二步**：确认/编辑转写内容，简报类型已自动识别\n"
+        "- ✨ **第三步**：点击「生成简报」，获得中英双语版本\n\n"
+        "📱 **iPhone 用户**：Safari 浏览器录音；或用「语音备忘录」录音 → 分享 → 存储到「文件」→ 在此上传"
+    )
 
 # ========== API 密钥管理 ==========
 def check_api_key():
@@ -577,57 +577,42 @@ PROMPTS_ZH = {
         "包含以下部分：\n## 会议主题\n## 主要讨论要点\n## 达成的决议\n## 待办事项与跟进（如有）\n"
         "要求：语言简洁精准，保留所有关键数据、人名和具体细节，不做无关补充。"
     ),
-    "工作日报": (
-        "你是一名专业的项目助理。请将以下工作汇报整理为结构化工作日报，使用 Markdown 格式，"
-        "包含以下部分：\n## 今日完成事项\n## 遇到的问题与解决方案\n## 明日工作计划\n"
-        "要求：条目清晰，每项注明完成情况或具体内容，保留所有关键细节。"
-    ),
-    "学习笔记": (
-        "你是一名知识整理专家。请将以下学习内容整理为结构化笔记，使用 Markdown 格式，"
-        "包含以下部分：\n## 核心概念\n## 重点知识与关键内容\n## 思考与启发（如有）\n"
-        "要求：逻辑清晰，知识点分层呈现，保留原文中的案例、数据和重要例子。"
-    ),
-    "新闻摘要": (
-        "你是一名专业的新闻编辑。请将以下新闻内容整理为结构化摘要，使用 Markdown 格式，"
-        "包含以下部分：\n## 事件概述\n## 关键数据与细节\n## 影响与分析\n"
-        "要求：客观中立，保留所有关键数字和专有名词，语言简洁专业。"
-    ),
-    "项目汇报": (
-        "你是一名专业的项目经理助理。请将以下项目汇报内容整理为结构化项目状态报告，使用 Markdown 格式，"
-        "包含以下部分：\n## 项目概况\n## 本阶段进展\n## 风险与问题\n## 下阶段计划\n"
-        "要求：数据驱动，突出进度与风险，保留所有里程碑节点和具体数字，语言简洁专业。"
-    ),
     "客户拜访": (
         "你是一名专业的销售助理。请将以下客户拜访记录整理为结构化拜访报告，使用 Markdown 格式，"
         "包含以下部分：\n## 客户信息与拜访背景\n## 客户需求与痛点\n## 讨论要点与沟通结果\n## 后续行动计划\n"
         "要求：准确记录客户需求、承诺事项和跟进责任人，保留所有具体信息，不遗漏任何行动项。"
     ),
+    "工作日报": (
+        "你是一名专业的项目助理。请将以下工作汇报整理为结构化工作日报，使用 Markdown 格式，"
+        "包含以下部分：\n## 今日完成事项\n## 遇到的问题与解决方案\n## 明日工作计划\n"
+        "要求：条目清晰，每项注明完成情况或具体内容，保留所有关键细节。"
+    ),
+    "其它摘要": (
+        "你是一名专业的文档整理员。请将以下内容整理为结构化摘要，使用 Markdown 格式，"
+        "根据内容性质合理划分章节，涵盖主要观点、关键细节和行动项（如有）。\n"
+        "要求：逻辑清晰，保留所有关键数据和专有名词，语言简洁专业。"
+    ),
 }
 
 EN_TYPE_MAP = {
     "会议纪要": "meeting minutes",
-    "工作日报": "daily work report",
-    "学习笔记": "study notes",
-    "新闻摘要": "news summary",
-    "项目汇报": "project status report",
     "客户拜访": "client visit report",
+    "工作日报": "daily work report",
+    "其它摘要": "summary",
 }
 
-BRIEFING_TYPES = ["会议纪要", "工作日报", "项目汇报", "客户拜访", "学习笔记", "新闻摘要"]
+BRIEFING_TYPES = ["会议纪要", "客户拜访", "工作日报", "其它摘要"]
 
 def detect_briefing_type(text: str) -> str:
-    """根据转写文本关键词自动识别最可能的简报类型。"""
+    """根据转写文本关键词自动识别最可能的简报类型（AI 分类的兜底）。"""
     keywords = {
-        "会议纪要": ["会议", "讨论", "决定", "议题", "参会", "决议", "纪要", "与会", "议程", "开会"],
-        "工作日报": ["今天", "今日", "完成", "明天", "明日", "汇报", "进展", "任务", "工作内容"],
-        "项目汇报": ["项目", "进度", "里程碑", "风险", "阶段", "交付", "延期", "需求变更", "上线"],
-        "客户拜访": ["客户", "拜访", "销售", "合同", "洽谈", "报价", "跟进", "方案", "签约"],
-        "学习笔记": ["学习", "概念", "理解", "知识点", "课程", "笔记", "原理", "定义", "读书"],
-        "新闻摘要": ["报道", "新闻", "据悉", "宣布", "发布", "事件", "称", "消息", "媒体"],
+        "会议纪要": ["会议", "议题", "参会", "决议", "纪要", "与会", "议程", "开会"],
+        "客户拜访": ["客户", "拜访", "合同", "洽谈", "报价", "跟进", "签约"],
+        "工作日报": ["今天", "今日", "明天", "明日", "完成事项", "工作内容", "工作日报"],
     }
     scores = {t: sum(1 for kw in kws if kw in text) for t, kws in keywords.items()}
     best = max(scores, key=scores.get)
-    return best if scores[best] > 0 else "会议纪要"
+    return best if scores[best] > 0 else "其它摘要"
 
 def classify_briefing_type(text: str, api_key: str) -> str:
     """用 AI 快速分类简报类型（取前 300 字，temperature=0，max_tokens=15）。出错时降级为关键词检测。"""
@@ -708,19 +693,8 @@ col1, col2 = st.columns([1, 1])
 
 with col1:
     st.subheader("🎤 语音输入")
-    
-    st.markdown("""
-    <div style="padding: 15px; border-radius: 12px; margin-bottom: 10px; 
-                background-color: var(--bg-secondary); 
-                border: 1px solid var(--border-color);">
-        <h4 style="margin-top: 0; color: var(--text-primary);">方式一：实时录音</h4>
-        <p style="color: var(--text-secondary); font-size: 14px; margin: 0;">
-            📱 iPhone 提示：请使用 Safari 浏览器<br>
-            点击录音 → 开始说话<br> 
-            点击停止 → 自动转写
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+
+    st.markdown("**方式一：实时录音**")
     
     try:
         from streamlit_mic_recorder import mic_recorder
@@ -770,31 +744,23 @@ with col1:
         st.info("请尝试使用方式二上传录音文件")
     
     st.divider()
-    
-    st.subheader("📁 方式二：上传录音")
-    
-    st.markdown("""
-    <div class="tip-card">
-        💡 <b>iPhone 用户推荐</b>：用「语音备忘录」录音 → 分享 → 存储到「文件」→ 在此上传
-    </div>
-    """, unsafe_allow_html=True)
-    
+
+    st.markdown("**方式二：上传录音**（上传后自动转写）")
+
     audio_file = st.file_uploader(
-        "选择录音文件", 
+        "选择录音文件",
         type=['mp3', 'wav', 'm4a', 'webm', 'ogg'],
         help="支持 mp3, wav, m4a, webm, ogg 格式"
     )
-    
+
     if audio_file:
         st.audio(audio_file, format=f'audio/{audio_file.type.split("/")[1]}')
-        
-        if st.button("🎯 开始转写", type="primary", key="transcribe_upload"):
+        file_id = f"{audio_file.name}_{audio_file.size}"
+        if st.session_state.get("_last_upload_id") != file_id:
+            st.session_state._last_upload_id = file_id
             file_bytes = audio_file.getvalue()
             file_mb = len(file_bytes) / (1024 * 1024)
-            wait_hint = "文件较大，预计需要 15–40 秒，请耐心等待…" if file_mb > 1 else "上传并识别中，通常需要 5–15 秒…"
             with st.status(f"🎙️ 转写中（{file_mb:.1f} MB）…", expanded=True) as ts:
-                st.write(f"文件大小：**{file_mb:.2f} MB**")
-                st.write(wait_hint)
                 result = transcribe_audio(file_bytes, api_key)
                 if result["success"]:
                     clean_text = result["text"]
@@ -896,15 +862,6 @@ with col2:
                             state="complete", expanded=False
                         )
                     st.session_state.generated_result_en = en_result
-
-                    # 保存到历史记录（最多保留 5 条）
-                    entry = {
-                        "time": datetime.now().strftime("%H:%M"),
-                        "type": briefing_type,
-                        "zh": zh_result,
-                        "en": en_result,
-                    }
-                    st.session_state.history = [entry] + st.session_state.history[:4]
                     st.rerun()
 
                 except Exception as e:
@@ -931,11 +888,7 @@ with col2:
         tab_zh, tab_en = st.tabs(["🇨🇳 中文版（可编辑）", "🇬🇧 English Version"])
 
         with tab_zh:
-            # 恢复历史或首次生成后初始化编辑器内容（必须在 text_area 渲染前完成）
-            if "_pending_zh_restore" in st.session_state:
-                st.session_state.zh_edit_content = st.session_state["_pending_zh_restore"]
-                del st.session_state["_pending_zh_restore"]
-            elif "zh_edit_content" not in st.session_state:
+            if "zh_edit_content" not in st.session_state:
                 st.session_state.zh_edit_content = st.session_state.get("generated_result_zh", "")
 
             current_zh = st.session_state.get("zh_edit_content", "")
@@ -1008,28 +961,6 @@ with col2:
                         key="en"
                     )
 
-# ========== v3.2.0：历史记录 ==========
-if st.session_state.get("history"):
-    history = st.session_state.history
-    with st.expander(f"📚 本次会话历史（{len(history)} 条）", expanded=False):
-        for i, h in enumerate(history):
-            col_info, col_btn = st.columns([4, 1])
-            with col_info:
-                preview = h["zh"][:60].replace("\n", " ")
-                if len(h["zh"]) > 60:
-                    preview += "…"
-                st.markdown(f"**{h['type']}** · {h['time']}")
-                st.caption(preview)
-            with col_btn:
-                if st.button("恢复", key=f"restore_{i}", use_container_width=True):
-                    st.session_state.generated_result_zh = h["zh"]
-                    st.session_state.generated_result_en = h["en"]
-                    # 不直接写 widget key（同帧已渲染会报错），用临时 key 在下帧应用
-                    st.session_state._pending_zh_restore = h["zh"]
-                    st.rerun()
-            if i < len(history) - 1:
-                st.divider()
-
-# ========== v3.2.0：版本号 ==========
+# ========== 版本号 ==========
 st.divider()
 st.caption(f"Made with ❤️ | PWA v{CONFIG['version']} · AI语音简报助手")
