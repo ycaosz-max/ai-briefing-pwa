@@ -613,6 +613,22 @@ EN_TYPE_MAP = {
     "客户拜访": "client visit report",
 }
 
+BRIEFING_TYPES = ["会议纪要", "工作日报", "项目汇报", "客户拜访", "学习笔记", "新闻摘要"]
+
+def detect_briefing_type(text: str) -> str:
+    """根据转写文本关键词自动识别最可能的简报类型。"""
+    keywords = {
+        "会议纪要": ["会议", "讨论", "决定", "议题", "参会", "决议", "纪要", "与会", "议程", "开会"],
+        "工作日报": ["今天", "今日", "完成", "明天", "明日", "汇报", "进展", "任务", "工作内容"],
+        "项目汇报": ["项目", "进度", "里程碑", "风险", "阶段", "交付", "延期", "需求变更", "上线"],
+        "客户拜访": ["客户", "拜访", "销售", "合同", "洽谈", "报价", "跟进", "方案", "签约"],
+        "学习笔记": ["学习", "概念", "理解", "知识点", "课程", "笔记", "原理", "定义", "读书"],
+        "新闻摘要": ["报道", "新闻", "据悉", "宣布", "发布", "事件", "称", "消息", "媒体"],
+    }
+    scores = {t: sum(1 for kw in kws if kw in text) for t, kws in keywords.items()}
+    best = max(scores, key=scores.get)
+    return best if scores[best] > 0 else "会议纪要"
+
 def get_translate_prompt(briefing_type: str) -> str:
     en_type = EN_TYPE_MAP.get(briefing_type, "briefing")
     return (
@@ -704,6 +720,8 @@ with col1:
                     else:
                         ts.update(label=f"✅ 转写完成！共 {len(clean_text)} 字", state="complete", expanded=False)
                         st.session_state.transcribed_text = clean_text
+                        st.session_state.briefing_type = detect_briefing_type(clean_text)
+                        st.session_state._type_auto_detected = True
                         st.rerun()
                 else:
                     error_type = result.get("error_type", "unknown")
@@ -758,6 +776,8 @@ with col1:
                     else:
                         ts.update(label=f"✅ 转写完成！共 {len(clean_text)} 字", state="complete", expanded=False)
                         st.session_state.transcribed_text = clean_text
+                        st.session_state.briefing_type = detect_briefing_type(clean_text)
+                        st.session_state._type_auto_detected = True
                         st.rerun()
                 else:
                     error_type = result.get("error_type", "unknown")
@@ -773,29 +793,36 @@ with col1:
 
 with col2:
     st.subheader("📝 编辑与生成")
-    
-    briefing_type = st.selectbox(
-        "简报类型",
-        ["会议纪要", "工作日报", "项目汇报", "客户拜访", "学习笔记", "新闻摘要"],
-        key="briefing_type"
-    )
 
+    # 1. 内容编辑区（转写结果自动填入）
     default_text = st.session_state.get("transcribed_text", "")
-    
     content = st.text_area(
         "编辑内容",
         value=default_text,
-        height=300,
-        placeholder="语音转写内容会出现在这里，您也可以直接输入..."
+        height=260,
+        placeholder="语音转写内容会出现在这里，您也可以直接输入…"
     )
-    
     if content != st.session_state.get("transcribed_text", ""):
         st.session_state.transcribed_text = content
-
     if content:
         st.markdown(f'<p class="char-count">{len(content)} 字</p>', unsafe_allow_html=True)
 
-    custom_req = st.text_input("特殊要求", placeholder="例如：重点突出数据、使用 bullet points")
+    # 2. 简报类型（转写后自动预选，可手动更改）
+    briefing_type = st.selectbox(
+        "简报类型",
+        BRIEFING_TYPES,
+        key="briefing_type"
+    )
+    if st.session_state.get("_type_auto_detected"):
+        st.caption("🤖 已根据内容自动识别，可手动更改")
+
+    # 3. 特殊要求（折叠，默认隐藏）
+    with st.expander("⚙️ 特殊要求（选填）", expanded=False):
+        custom_req = st.text_input(
+            "特殊要求",
+            placeholder="例如：重点突出数据、使用 bullet points",
+            label_visibility="collapsed"
+        )
     
     col_gen, col_clear = st.columns([3, 1])
     with col_gen:
@@ -862,7 +889,8 @@ with col2:
     with col_clear:
         if st.button("🗑️ 清空", use_container_width=True):
             st.session_state.transcribed_text = ""
-            for _k in ["generated_result_zh", "generated_result_en", "generated_result"]:
+            for _k in ["generated_result_zh", "generated_result_en", "generated_result",
+                       "_type_auto_detected"]:
                 if _k in st.session_state:
                     del st.session_state[_k]
             st.rerun()
