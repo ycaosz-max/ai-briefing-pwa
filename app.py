@@ -875,7 +875,8 @@ with col2:
         with tab_zh:
             # 恢复历史或首次生成后初始化编辑器内容（必须在 text_area 渲染前完成）
             if "_pending_zh_restore" in st.session_state:
-                st.session_state.zh_edit_content = st.session_state.pop("_pending_zh_restore")
+                st.session_state.zh_edit_content = st.session_state["_pending_zh_restore"]
+                del st.session_state["_pending_zh_restore"]
             elif "zh_edit_content" not in st.session_state:
                 st.session_state.zh_edit_content = st.session_state.get("generated_result_zh", "")
 
