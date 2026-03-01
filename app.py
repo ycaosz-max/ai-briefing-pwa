@@ -889,20 +889,18 @@ with col2:
                     del st.session_state[_k]
             st.rerun()
 
-    # ========== 结果展示：中文优先，英文按需 ==========
+    # ========== 结果展示：双 Tab ==========
     if "generated_result_zh" in st.session_state:
         st.divider()
+        tab_zh, tab_en = st.tabs(["🇨🇳 中文版", "🇬🇧 English"])
 
-        # 中文编辑区
-        if "zh_edit_content" not in st.session_state:
-            st.session_state.zh_edit_content = st.session_state.get("generated_result_zh", "")
-        current_zh = st.session_state.get("zh_edit_content", "")
-        if current_zh:
-            st.markdown(f'<span class="stat-badge">📝 {len(current_zh)} 字</span>', unsafe_allow_html=True)
-        st.text_area("编辑中文简报", key="zh_edit_content", height=260, label_visibility="collapsed")
-
-        col_dl_zh, col_en_btn = st.columns([1, 1])
-        with col_dl_zh:
+        with tab_zh:
+            if "zh_edit_content" not in st.session_state:
+                st.session_state.zh_edit_content = st.session_state.get("generated_result_zh", "")
+            current_zh = st.session_state.get("zh_edit_content", "")
+            if current_zh:
+                st.markdown(f'<span class="stat-badge">📝 {len(current_zh)} 字</span>', unsafe_allow_html=True)
+            st.text_area("编辑中文简报", key="zh_edit_content", height=260, label_visibility="collapsed")
             with st.expander("📤 导出中文版", expanded=False):
                 show_export_section(
                     content=st.session_state.get("zh_edit_content", ""),
@@ -911,7 +909,25 @@ with col2:
                     label_dl="下载 .md 文件",
                     key="zh"
                 )
-        with col_en_btn:
+
+        with tab_en:
+            if "generated_result_en" in st.session_state:
+                result_en = st.session_state["generated_result_en"]
+                st.markdown(
+                    f'<span class="stat-badge">📝 ~{len(result_en.split())} words</span>',
+                    unsafe_allow_html=True
+                )
+                st.markdown(result_en)
+                with st.expander("📤 Export English Version", expanded=False):
+                    show_export_section(
+                        content=result_en,
+                        filename=f"Briefing_{briefing_type}.md",
+                        label_copy="Copy all text",
+                        label_dl="Download .md",
+                        key="en"
+                    )
+            else:
+                st.caption("中文简报生成后，点击下方按钮获取英文版")
             en_btn_label = "🌐 重新生成英文版" if "generated_result_en" in st.session_state else "🌐 生成英文版"
             if st.button(en_btn_label, use_container_width=True, key="translate_btn"):
                 edited_zh = st.session_state.get("zh_edit_content", "")
@@ -937,24 +953,6 @@ with col2:
                     except Exception as e:
                         error_info = classify_error(e)
                         st.error(f"{error_info['title']}：{error_info['message']}")
-
-        # 英文结果（仅在用户主动生成后显示）
-        if "generated_result_en" in st.session_state:
-            st.divider()
-            result_en = st.session_state["generated_result_en"]
-            st.markdown(
-                f'<span class="stat-badge">📝 ~{len(result_en.split())} words</span>',
-                unsafe_allow_html=True
-            )
-            st.markdown(result_en)
-            with st.expander("📤 Export English Version", expanded=False):
-                show_export_section(
-                    content=result_en,
-                    filename=f"Briefing_{briefing_type}.md",
-                    label_copy="Copy all text",
-                    label_dl="Download .md",
-                    key="en"
-                )
 
 # ========== 版本号 ==========
 st.divider()
