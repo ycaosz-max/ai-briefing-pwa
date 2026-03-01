@@ -436,10 +436,10 @@ hr {{ border-color: var(--border-color) !important; }}
     cursor: pointer !important;
 }}
 [data-testid="stFileUploaderDropzone"]::before {{
-    content: "📁 上传录音";
+    content: "选取文件";
     color: white !important;
-    font-size: 15px !important;
-    font-weight: 600 !important;
+    font-size: 14px !important;
+    font-weight: 400 !important;
     pointer-events: none;
 }}
 [data-testid="stFileUploaderDropzone"] button {{
