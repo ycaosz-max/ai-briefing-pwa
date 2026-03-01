@@ -424,27 +424,31 @@ hr {{ border-color: var(--border-color) !important; }}
     display: none !important;
 }}
 [data-testid="stFileUploaderDropzone"] {{
-    border: none !important;
-    background: transparent !important;
-    padding: 0 !important;
-}}
-[data-testid="stFileUploaderDropzone"] button {{
-    width: 100% !important;
-    min-height: 46px !important;
     background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-hover) 100%) !important;
-    color: white !important;
     border: none !important;
     border-radius: 10px !important;
-    padding: 10px 16px !important;
+    min-height: 46px !important;
+    padding: 0 !important;
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+}}
+[data-testid="stFileUploaderDropzone"]::before {{
+    content: "📁 上传录音";
+    color: white !important;
     font-size: 15px !important;
     font-weight: 600 !important;
+    pointer-events: none;
 }}
-[data-testid="stFileUploaderDropzone"] button span {{
-    font-size: 0 !important;
-}}
-[data-testid="stFileUploaderDropzone"] button span::after {{
-    content: "📁 上传录音";
-    font-size: 15px !important;
+[data-testid="stFileUploaderDropzone"] button {{
+    position: absolute !important;
+    inset: 0 !important;
+    opacity: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    cursor: pointer !important;
 }}
 </style>
 """, unsafe_allow_html=True)
