@@ -701,7 +701,7 @@ def show_export_section(content: str, filename: str, label_copy: str, label_dl: 
     - st.code() 右上角原生复制按钮（无 JS，iOS PWA / 桌面均可用）
     - st.download_button 供桌面下载文件
     """
-    st.caption(f"📋 {label_copy} — 点击右上角复制图标即可复制全文")
+    st.caption("📋 点击右上角复制 · 电脑端可下载文件")
     st.code(content, language=None)
     mime = "text/markdown" if filename.endswith(".md") else "text/plain"
     st.download_button(
@@ -901,14 +901,13 @@ with col2:
             if current_zh:
                 st.markdown(f'<span class="stat-badge">📝 {len(current_zh)} 字</span>', unsafe_allow_html=True)
             st.text_area("编辑中文简报", key="zh_edit_content", height=260, label_visibility="collapsed")
-            with st.expander("📤 导出中文版", expanded=False):
-                show_export_section(
-                    content=st.session_state.get("zh_edit_content", ""),
-                    filename=f"简报_{briefing_type}.md",
-                    label_copy="复制全文",
-                    label_dl="下载 .md 文件",
-                    key="zh"
-                )
+            show_export_section(
+                content=st.session_state.get("zh_edit_content", ""),
+                filename=f"简报_{briefing_type}.md",
+                label_copy="复制全文",
+                label_dl="下载中文版 .md",
+                key="zh"
+            )
 
         with tab_en:
             if "generated_result_en" in st.session_state:
@@ -918,14 +917,13 @@ with col2:
                     unsafe_allow_html=True
                 )
                 st.markdown(result_en)
-                with st.expander("📤 Export English Version", expanded=False):
-                    show_export_section(
-                        content=result_en,
-                        filename=f"Briefing_{briefing_type}.md",
-                        label_copy="Copy all text",
-                        label_dl="Download .md",
-                        key="en"
-                    )
+                show_export_section(
+                    content=result_en,
+                    filename=f"Briefing_{briefing_type}.md",
+                    label_copy="Copy all text",
+                    label_dl="Download English .md",
+                    key="en"
+                )
             else:
                 st.caption("中文简报生成后，点击下方按钮获取英文版")
             en_btn_label = "🌐 重新生成英文版" if "generated_result_en" in st.session_state else "🌐 生成英文版"
