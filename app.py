@@ -5,8 +5,8 @@ import tempfile
 import json
 from datetime import datetime
 
-# ========== v3.2.0：历史记录 + 新增模板 + .md 导出 ==========
-VERSION = "3.2.0"
+# ========== v3.3.0：自动识别简报类型 + 流程优化 ==========
+VERSION = "3.3.0"
 
 CONFIG = {
     "version": VERSION,
