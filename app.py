@@ -3,9 +3,10 @@ from openai import OpenAI
 import os
 import tempfile
 import json
+from datetime import datetime
 
-# ========== v3.1.0：流式输出 + 提示词升级 ==========
-VERSION = "3.1.0"
+# ========== v3.2.0：历史记录 + 新增模板 + .md 导出 ==========
+VERSION = "3.2.0"
 
 CONFIG = {
     "version": VERSION,
@@ -392,6 +393,8 @@ if 'authenticated' not in st.session_state:
     st.session_state.authenticated = False
 if 'api_key' not in st.session_state:
     st.session_state.api_key = ""
+if 'history' not in st.session_state:
+    st.session_state.history = []
 
 # ========== 页头 + 三步流程 ==========
 st.markdown("""
@@ -589,6 +592,16 @@ PROMPTS_ZH = {
         "包含以下部分：\n## 事件概述\n## 关键数据与细节\n## 影响与分析\n"
         "要求：客观中立，保留所有关键数字和专有名词，语言简洁专业。"
     ),
+    "项目汇报": (
+        "你是一名专业的项目经理助理。请将以下项目汇报内容整理为结构化项目状态报告，使用 Markdown 格式，"
+        "包含以下部分：\n## 项目概况\n## 本阶段进展\n## 风险与问题\n## 下阶段计划\n"
+        "要求：数据驱动，突出进度与风险，保留所有里程碑节点和具体数字，语言简洁专业。"
+    ),
+    "客户拜访": (
+        "你是一名专业的销售助理。请将以下客户拜访记录整理为结构化拜访报告，使用 Markdown 格式，"
+        "包含以下部分：\n## 客户信息与拜访背景\n## 客户需求与痛点\n## 讨论要点与沟通结果\n## 后续行动计划\n"
+        "要求：准确记录客户需求、承诺事项和跟进责任人，保留所有具体信息，不遗漏任何行动项。"
+    ),
 }
 
 EN_TYPE_MAP = {
@@ -596,6 +609,8 @@ EN_TYPE_MAP = {
     "工作日报": "daily work report",
     "学习笔记": "study notes",
     "新闻摘要": "news summary",
+    "项目汇报": "project status report",
+    "客户拜访": "client visit report",
 }
 
 def get_translate_prompt(briefing_type: str) -> str:
@@ -635,11 +650,12 @@ def show_export_section(content: str, filename: str, label_copy: str, label_dl: 
     """
     st.caption(f"📋 {label_copy} — 点击右上角复制图标即可复制全文")
     st.code(content, language=None)
+    mime = "text/markdown" if filename.endswith(".md") else "text/plain"
     st.download_button(
         label=f"💾 {label_dl}",
         data=content.encode("utf-8"),
         file_name=filename,
-        mime="text/plain",
+        mime=mime,
         use_container_width=True,
         key=f"dl_{key}"
     )
@@ -760,7 +776,7 @@ with col2:
     
     briefing_type = st.selectbox(
         "简报类型",
-        ["会议纪要", "工作日报", "学习笔记", "新闻摘要"],
+        ["会议纪要", "工作日报", "项目汇报", "客户拜访", "学习笔记", "新闻摘要"],
         key="briefing_type"
     )
 
@@ -823,6 +839,15 @@ with col2:
                             state="complete", expanded=False
                         )
                     st.session_state.generated_result_en = en_result
+
+                    # 保存到历史记录（最多保留 5 条）
+                    entry = {
+                        "time": datetime.now().strftime("%H:%M"),
+                        "type": briefing_type,
+                        "zh": zh_result,
+                        "en": en_result,
+                    }
+                    st.session_state.history = [entry] + st.session_state.history[:4]
                     st.rerun()
 
                 except Exception as e:
@@ -871,9 +896,9 @@ with col2:
                 with st.expander("📤 导出中文版", expanded=False):
                     show_export_section(
                         content=st.session_state.get("zh_edit_content", ""),
-                        filename=f"简报_{briefing_type}.txt",
+                        filename=f"简报_{briefing_type}.md",
                         label_copy="复制全文",
-                        label_dl="下载 .txt 文件（桌面）",
+                        label_dl="下载 .md 文件（桌面）",
                         key="zh"
                     )
             with col_retrans:
@@ -916,12 +941,33 @@ with col2:
                 with st.expander("📤 Export English Version", expanded=False):
                     show_export_section(
                         content=result_en,
-                        filename=f"Briefing_{briefing_type}.txt",
+                        filename=f"Briefing_{briefing_type}.md",
                         label_copy="Copy all text",
-                        label_dl="Download .txt (Desktop)",
+                        label_dl="Download .md (Desktop)",
                         key="en"
                     )
 
-# ========== v3.1.0：版本号 ==========
+# ========== v3.2.0：历史记录 ==========
+if st.session_state.get("history"):
+    history = st.session_state.history
+    with st.expander(f"📚 本次会话历史（{len(history)} 条）", expanded=False):
+        for i, h in enumerate(history):
+            col_info, col_btn = st.columns([4, 1])
+            with col_info:
+                preview = h["zh"][:60].replace("\n", " ")
+                if len(h["zh"]) > 60:
+                    preview += "…"
+                st.markdown(f"**{h['type']}** · {h['time']}")
+                st.caption(preview)
+            with col_btn:
+                if st.button("恢复", key=f"restore_{i}", use_container_width=True):
+                    st.session_state.generated_result_zh = h["zh"]
+                    st.session_state.zh_edit_content = h["zh"]
+                    st.session_state.generated_result_en = h["en"]
+                    st.rerun()
+            if i < len(history) - 1:
+                st.divider()
+
+# ========== v3.2.0：版本号 ==========
 st.divider()
 st.caption(f"Made with ❤️ | PWA v{CONFIG['version']} · AI语音简报助手")
