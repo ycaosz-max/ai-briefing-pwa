@@ -414,9 +414,17 @@ hr {{ border-color: var(--border-color) !important; }}
     pointer-events: none;
 }}
 [data-testid="stCode"] button {{
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
     opacity: 1 !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
+    background: transparent !important;
+    border: none !important;
+    cursor: pointer !important;
+}}
+[data-testid="stCode"] button svg {{
+    display: none !important;
 }}
 
 /* ========== 文件上传：只显示一个按钮 ========== */
