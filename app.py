@@ -5,8 +5,8 @@ import tempfile
 import json
 from datetime import datetime
 
-# ========== v3.3.0：自动识别简报类型 + 流程优化 ==========
-VERSION = "3.3.0"
+# ========== v3.4.0：AI 智能识别简报类型 ==========
+VERSION = "3.4.0"
 
 CONFIG = {
     "version": VERSION,
@@ -629,6 +629,32 @@ def detect_briefing_type(text: str) -> str:
     best = max(scores, key=scores.get)
     return best if scores[best] > 0 else "会议纪要"
 
+def classify_briefing_type(text: str, api_key: str) -> str:
+    """用 AI 快速分类简报类型（取前 300 字，temperature=0，max_tokens=15）。出错时降级为关键词检测。"""
+    sample = text[:300].strip()
+    types_str = "、".join(BRIEFING_TYPES)
+    try:
+        client = OpenAI(api_key=api_key, base_url=CONFIG["api"]["base_url"])
+        resp = client.chat.completions.create(
+            model=CONFIG["models"]["generate"],
+            messages=[
+                {"role": "system", "content": (
+                    f"你是文档分类器。根据文本内容，从以下类型中选出最合适的一种，"
+                    f"只回复类型名称，不要其他内容：\n{types_str}"
+                )},
+                {"role": "user", "content": sample},
+            ],
+            temperature=0,
+            max_tokens=15,
+        )
+        result = resp.choices[0].message.content.strip()
+        for t in BRIEFING_TYPES:
+            if t in result:
+                return t
+        return detect_briefing_type(text)
+    except Exception:
+        return detect_briefing_type(text)
+
 def get_translate_prompt(briefing_type: str) -> str:
     en_type = EN_TYPE_MAP.get(briefing_type, "briefing")
     return (
@@ -718,9 +744,11 @@ with col1:
                         ts.update(label="⚠️ 转写结果为空", state="error", expanded=True)
                         st.warning("录音内容可能过短或不清晰，请重新录制")
                     else:
-                        ts.update(label=f"✅ 转写完成！共 {len(clean_text)} 字", state="complete", expanded=False)
+                        st.write("🤖 正在识别简报类型…")
+                        detected = classify_briefing_type(clean_text, api_key)
+                        ts.update(label=f"✅ 转写完成，识别为【{detected}】", state="complete", expanded=False)
                         st.session_state.transcribed_text = clean_text
-                        st.session_state.briefing_type = detect_briefing_type(clean_text)
+                        st.session_state.briefing_type = detected
                         st.session_state._type_auto_detected = True
                         st.rerun()
                 else:
@@ -774,9 +802,11 @@ with col1:
                         ts.update(label="⚠️ 转写结果为空", state="error", expanded=True)
                         st.warning("音频内容可能过短或格式不支持，请换个文件试试")
                     else:
-                        ts.update(label=f"✅ 转写完成！共 {len(clean_text)} 字", state="complete", expanded=False)
+                        st.write("🤖 正在识别简报类型…")
+                        detected = classify_briefing_type(clean_text, api_key)
+                        ts.update(label=f"✅ 转写完成，识别为【{detected}】", state="complete", expanded=False)
                         st.session_state.transcribed_text = clean_text
-                        st.session_state.briefing_type = detect_briefing_type(clean_text)
+                        st.session_state.briefing_type = detected
                         st.session_state._type_auto_detected = True
                         st.rerun()
                 else:
