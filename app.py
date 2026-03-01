@@ -5,8 +5,8 @@ import tempfile
 import json
 from datetime import datetime
 
-# ========== v3.7.0：流程精简、减少冗余步骤 ==========
-VERSION = "3.7.0"
+# ========== v3.7.1：复制按钮点击反馈 + 去除英文Tab重复内容 ==========
+VERSION = "3.7.1"
 
 CONFIG = {
     "version": VERSION,
@@ -425,6 +425,14 @@ hr {{ border-color: var(--border-color) !important; }}
 }}
 [data-testid="stCode"] button svg {{
     display: none !important;
+}}
+[data-testid="stCode"]:has(button:active) {{
+    background: rgba(48, 209, 88, 0.15) !important;
+    border-color: #30d158 !important;
+}}
+[data-testid="stCode"]:has(button:active)::before {{
+    content: "✅  已复制！";
+    color: #30d158 !important;
 }}
 
 /* ========== 文件上传：只显示一个按钮 ========== */
@@ -957,11 +965,6 @@ with col2:
         with tab_en:
             if "generated_result_en" in st.session_state:
                 result_en = st.session_state["generated_result_en"]
-                st.markdown(
-                    f'<span class="stat-badge">📝 ~{len(result_en.split())} words</span>',
-                    unsafe_allow_html=True
-                )
-                st.markdown(result_en)
                 show_export_section(
                     content=result_en,
                     filename=f"Briefing_{briefing_type}.md",
