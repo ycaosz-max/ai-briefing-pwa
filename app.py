@@ -5,8 +5,8 @@ import tempfile
 import json
 from datetime import datetime
 
-# ========== v3.7.1：复制按钮点击反馈 + 去除英文Tab重复内容 ==========
-VERSION = "3.7.1"
+# ========== v3.7.2：英文Tab加回可编辑文本框 ==========
+VERSION = "3.7.2"
 
 CONFIG = {
     "version": VERSION,
@@ -937,7 +937,7 @@ with col2:
         if st.button("🗑️ 清空", use_container_width=True):
             st.session_state.transcribed_text = ""
             for _k in ["generated_result_zh", "generated_result_en", "generated_result",
-                       "_type_auto_detected", "_last_upload_id", "zh_edit_content"]:
+                       "_type_auto_detected", "_last_upload_id", "zh_edit_content", "en_edit_content"]:
                 if _k in st.session_state:
                     del st.session_state[_k]
             st.rerun()
@@ -964,9 +964,14 @@ with col2:
 
         with tab_en:
             if "generated_result_en" in st.session_state:
-                result_en = st.session_state["generated_result_en"]
+                if "en_edit_content" not in st.session_state:
+                    st.session_state.en_edit_content = st.session_state["generated_result_en"]
+                current_en = st.session_state.get("en_edit_content", "")
+                if current_en:
+                    st.markdown(f'<span class="stat-badge">📝 ~{len(current_en.split())} words</span>', unsafe_allow_html=True)
+                st.text_area("编辑英文简报", key="en_edit_content", height=260, label_visibility="collapsed")
                 show_export_section(
-                    content=result_en,
+                    content=st.session_state.get("en_edit_content", ""),
                     filename=f"Briefing_{briefing_type}.md",
                     label_copy="Copy all text",
                     label_dl="Download English .md",
@@ -995,6 +1000,7 @@ with col2:
                                 state="complete", expanded=False
                             )
                         st.session_state.generated_result_en = en_result
+                        st.session_state.en_edit_content = en_result
                         st.rerun()
                     except Exception as e:
                         error_info = classify_error(e)
