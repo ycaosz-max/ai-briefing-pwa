@@ -772,7 +772,17 @@ with col1:
     
     st.divider()
 
-    st.markdown("**方式二：上传录音**")
+    col_m2_title, col_m2_help = st.columns([5, 1])
+    with col_m2_title:
+        st.markdown("**方式二：上传录音**")
+    with col_m2_help:
+        with st.popover("❓"):
+            st.markdown(
+                "**支持格式：** MP3、WAV、M4A、WEBM、OGG\n\n"
+                "**文件大小：** 最大 200MB\n\n"
+                "📱 **iPhone 用户：**\n\n"
+                "「语音备忘录」录音 → 分享 → 存储到「文件」→ 在此上传"
+            )
 
     audio_file = st.file_uploader(
         "上传录音",
@@ -888,7 +898,7 @@ with col2:
         if st.button("🗑️ 清空", use_container_width=True):
             st.session_state.transcribed_text = ""
             for _k in ["generated_result_zh", "generated_result_en", "generated_result",
-                       "_type_auto_detected"]:
+                       "_type_auto_detected", "_last_upload_id", "zh_edit_content"]:
                 if _k in st.session_state:
                     del st.session_state[_k]
             st.rerun()
