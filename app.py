@@ -385,6 +385,37 @@ hr {{ border-color: var(--border-color) !important; }}
 }}
 
 * {{ transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease; }}
+
+/* ========== 文件上传组件汉化 ========== */
+[data-testid="stFileUploaderDropzoneInstructions"] span {{
+    display: none;
+}}
+[data-testid="stFileUploaderDropzoneInstructions"]::before {{
+    content: "拖拽文件至此处，或";
+    display: block;
+    text-align: center;
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}}
+[data-testid="stFileUploaderDropzoneInstructions"] small {{
+    display: none;
+}}
+[data-testid="stFileUploaderDropzoneInstructions"]::after {{
+    content: "支持 MP3、WAV、M4A、WEBM、OGG（最大 200MB）";
+    display: block;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}}
+[data-testid="stFileUploaderDropzone"] button span {{
+    font-size: 0;
+}}
+[data-testid="stFileUploaderDropzone"] button span::after {{
+    content: "选择文件";
+    font-size: 14px;
+}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -407,8 +438,7 @@ with st.expander("💡 使用说明", expanded=False):
         "**三步完成简报：**\n"
         "- 🎙️ **第一步**：实时录音 或 上传录音文件（自动转写）\n"
         "- ✏️ **第二步**：确认/编辑转写内容，简报类型自动识别\n"
-        "- ✨ **第三步**：点击「生成简报」，获得中英双语版本\n\n"
-        "📱 **iPhone 用户**：「语音备忘录」录音 → 分享 → 存储到「文件」→ 在此上传"
+        "- ✨ **第三步**：点击「生成简报」，获得中英双语版本"
     )
 
 # ========== API 密钥管理 ==========
@@ -746,6 +776,7 @@ with col1:
     st.divider()
 
     st.markdown("**方式二：上传录音**")
+    st.caption("📱 iPhone 用户：「语音备忘录」录音 → 分享 → 存储到「文件」→ 在此上传")
 
     audio_file = st.file_uploader(
         "选择录音文件",
