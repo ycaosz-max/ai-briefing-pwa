@@ -386,35 +386,31 @@ hr {{ border-color: var(--border-color) !important; }}
 
 * {{ transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease; }}
 
-/* ========== 文件上传组件汉化 ========== */
-[data-testid="stFileUploaderDropzoneInstructions"] span {{
-    display: none;
+/* ========== 文件上传：只显示一个按钮 ========== */
+[data-testid="stFileUploaderDropzoneInstructions"] {{
+    display: none !important;
 }}
-[data-testid="stFileUploaderDropzoneInstructions"]::before {{
-    content: "拖拽文件至此处，或";
-    display: block;
-    text-align: center;
-    font-size: 14px;
-    color: var(--text-secondary);
-    margin-bottom: 4px;
+[data-testid="stFileUploaderDropzone"] {{
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
 }}
-[data-testid="stFileUploaderDropzoneInstructions"] small {{
-    display: none;
-}}
-[data-testid="stFileUploaderDropzoneInstructions"]::after {{
-    content: "支持 MP3、WAV、M4A、WEBM、OGG（最大 200MB）";
-    display: block;
-    text-align: center;
-    font-size: 12px;
-    color: var(--text-secondary);
-    margin-top: 4px;
+[data-testid="stFileUploaderDropzone"] button {{
+    width: 100% !important;
+    background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-hover) 100%) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 10px !important;
+    padding: 10px 16px !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
 }}
 [data-testid="stFileUploaderDropzone"] button span {{
-    font-size: 0;
+    font-size: 0 !important;
 }}
 [data-testid="stFileUploaderDropzone"] button span::after {{
-    content: "选择文件";
-    font-size: 14px;
+    content: "📁 上传录音";
+    font-size: 15px !important;
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -776,12 +772,11 @@ with col1:
     st.divider()
 
     st.markdown("**方式二：上传录音**")
-    st.caption("📱 iPhone 用户：「语音备忘录」录音 → 分享 → 存储到「文件」→ 在此上传")
 
     audio_file = st.file_uploader(
-        "选择录音文件",
+        "上传录音",
         type=['mp3', 'wav', 'm4a', 'webm', 'ogg'],
-        help="支持 mp3, wav, m4a, webm, ogg 格式"
+        label_visibility="collapsed"
     )
 
     if audio_file:
