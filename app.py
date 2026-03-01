@@ -386,6 +386,30 @@ hr {{ border-color: var(--border-color) !important; }}
 
 * {{ transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease; }}
 
+/* ========== st.code() → 纯复制按钮（隐藏文本内容）========== */
+[data-testid="stCode"] pre {{
+    display: none !important;
+}}
+[data-testid="stCode"] > div {{
+    min-height: 2.75rem !important;
+    background: rgba(255, 107, 107, 0.06) !important;
+    border: 1.5px solid var(--accent-color) !important;
+    border-radius: 10px !important;
+    position: relative !important;
+    padding: 0 !important;
+}}
+[data-testid="stCode"] > div::before {{
+    content: "📋  点击复制全文";
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--accent-color);
+    font-size: 14px;
+    font-weight: 600;
+    pointer-events: none;
+}}
+
 /* ========== 文件上传：只显示一个按钮 ========== */
 [data-testid="stFileUploaderDropzoneInstructions"] {{
     display: none !important;
@@ -701,7 +725,6 @@ def show_export_section(content: str, filename: str, label_copy: str, label_dl: 
     - st.code() 右上角原生复制按钮（无 JS，iOS PWA / 桌面均可用）
     - st.download_button 供桌面下载文件
     """
-    st.caption("📋 点击右上角复制 · 电脑端可下载文件")
     st.code(content, language=None)
     mime = "text/markdown" if filename.endswith(".md") else "text/plain"
     st.download_button(
