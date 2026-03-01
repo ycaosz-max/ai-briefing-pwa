@@ -873,8 +873,10 @@ with col2:
         tab_zh, tab_en = st.tabs(["🇨🇳 中文版（可编辑）", "🇬🇧 English Version"])
 
         with tab_zh:
-            # 初始化编辑器内容（首次或新生成后）
-            if "zh_edit_content" not in st.session_state:
+            # 恢复历史或首次生成后初始化编辑器内容（必须在 text_area 渲染前完成）
+            if "_pending_zh_restore" in st.session_state:
+                st.session_state.zh_edit_content = st.session_state.pop("_pending_zh_restore")
+            elif "zh_edit_content" not in st.session_state:
                 st.session_state.zh_edit_content = st.session_state.get("generated_result_zh", "")
 
             current_zh = st.session_state.get("zh_edit_content", "")
@@ -962,8 +964,9 @@ if st.session_state.get("history"):
             with col_btn:
                 if st.button("恢复", key=f"restore_{i}", use_container_width=True):
                     st.session_state.generated_result_zh = h["zh"]
-                    st.session_state.zh_edit_content = h["zh"]
                     st.session_state.generated_result_en = h["en"]
+                    # 不直接写 widget key（同帧已渲染会报错），用临时 key 在下帧应用
+                    st.session_state._pending_zh_restore = h["zh"]
                     st.rerun()
             if i < len(history) - 1:
                 st.divider()
