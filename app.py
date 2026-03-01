@@ -5,8 +5,8 @@ import tempfile
 import json
 from datetime import datetime
 
-# ========== v3.6.0：先生成中文，再按需生成英文 ==========
-VERSION = "3.6.0"
+# ========== v3.7.0：流程精简、减少冗余步骤 ==========
+VERSION = "3.7.0"
 
 CONFIG = {
     "version": VERSION,
@@ -735,9 +735,7 @@ with col1:
         
         if audio and audio.get("bytes"):
             audio_kb = len(audio["bytes"]) / 1024
-            with st.status(f"🎙️ 转写中（{audio_kb:.0f} KB）…", expanded=True) as ts:
-                st.write("音频已捕获，正在上传到 AI 服务器…")
-                st.write("SenseVoice 语音识别中，请稍候…")
+            with st.status("🎙️ 转写中…", expanded=True) as ts:
                 result = transcribe_audio(audio["bytes"], api_key)
                 if result["success"]:
                     clean_text = result["text"]
@@ -772,26 +770,13 @@ with col1:
     
     st.divider()
 
-    col_m2_title, col_m2_help = st.columns([5, 1])
-    with col_m2_title:
-        st.markdown("**方式二：上传录音**")
-    with col_m2_help:
-        with st.popover("❓"):
-            st.markdown(
-                "**支持格式：** MP3、WAV、M4A、WEBM、OGG\n\n"
-                "**文件大小：** 最大 200MB\n\n"
-                "📱 **iPhone 用户：**\n\n"
-                "「语音备忘录」录音 → 分享 → 存储到「文件」→ 在此上传"
-            )
-
     audio_file = st.file_uploader(
-        "上传录音",
+        "方式二：上传录音",
         type=['mp3', 'wav', 'm4a', 'webm', 'ogg'],
-        label_visibility="collapsed"
+        help="支持 MP3、WAV、M4A、WEBM、OGG，最大 200MB。\n\n📱 iPhone：「语音备忘录」录音 → 分享 → 存储到「文件」→ 在此上传"
     )
 
     if audio_file:
-        st.audio(audio_file, format=f'audio/{audio_file.type.split("/")[1]}')
         file_id = f"{audio_file.name}_{audio_file.size}"
         if st.session_state.get("_last_upload_id") != file_id:
             st.session_state._last_upload_id = file_id
@@ -832,8 +817,9 @@ with col2:
     content = st.text_area(
         "编辑内容",
         value=default_text,
-        height=260,
-        placeholder="语音转写内容会出现在这里，您也可以直接输入…"
+        height=180,
+        placeholder="语音转写内容会出现在这里，您也可以直接输入…",
+        label_visibility="collapsed"
     )
     if content != st.session_state.get("transcribed_text", ""):
         st.session_state.transcribed_text = content
@@ -913,7 +899,7 @@ with col2:
         current_zh = st.session_state.get("zh_edit_content", "")
         if current_zh:
             st.markdown(f'<span class="stat-badge">📝 {len(current_zh)} 字</span>', unsafe_allow_html=True)
-        st.text_area("编辑中文简报", key="zh_edit_content", height=340, label_visibility="collapsed")
+        st.text_area("编辑中文简报", key="zh_edit_content", height=260, label_visibility="collapsed")
 
         col_dl_zh, col_en_btn = st.columns([1, 1])
         with col_dl_zh:
