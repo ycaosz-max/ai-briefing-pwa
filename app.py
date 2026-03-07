@@ -5,8 +5,8 @@ import tempfile
 import json
 from datetime import datetime
 
-# ========== v3.7.2：英文Tab加回可编辑文本框 ==========
-VERSION = "3.7.2"
+# ========== v3.7.3：复制按钮全区域可点击 + 下载改 .txt ==========
+VERSION = "3.7.3"
 
 CONFIG = {
     "version": VERSION,
@@ -413,6 +413,9 @@ hr {{ border-color: var(--border-color) !important; }}
     font-weight: 600;
     pointer-events: none;
 }}
+[data-testid="stCode"] > div {{
+    position: static !important;
+}}
 [data-testid="stCode"] button {{
     position: absolute !important;
     inset: 0 !important;
@@ -422,6 +425,7 @@ hr {{ border-color: var(--border-color) !important; }}
     background: transparent !important;
     border: none !important;
     cursor: pointer !important;
+    z-index: 10 !important;
 }}
 [data-testid="stCode"] button svg {{
     display: none !important;
@@ -956,9 +960,9 @@ with col2:
             st.text_area("编辑中文简报", key="zh_edit_content", height=260, label_visibility="collapsed")
             show_export_section(
                 content=st.session_state.get("zh_edit_content", ""),
-                filename=f"简报_{briefing_type}.md",
+                filename=f"简报_{briefing_type}.txt",
                 label_copy="复制全文",
-                label_dl="下载中文版 .md",
+                label_dl="下载 .txt",
                 key="zh"
             )
 
@@ -972,9 +976,9 @@ with col2:
                 st.text_area("编辑英文简报", key="en_edit_content", height=260, label_visibility="collapsed")
                 show_export_section(
                     content=st.session_state.get("en_edit_content", ""),
-                    filename=f"Briefing_{briefing_type}.md",
+                    filename=f"Briefing_{briefing_type}.txt",
                     label_copy="Copy all text",
-                    label_dl="Download English .md",
+                    label_dl="Download .txt",
                     key="en"
                 )
             else:
