@@ -760,16 +760,26 @@ def show_export_section(content: str, filename: str, label_copy: str, label_dl: 
     st.markdown(f"""
 <button data-content="{safe}"
   onclick="(function(b){{
-    navigator.clipboard.writeText(b.dataset.content).then(function(){{
+    var text=b.dataset.content;
+    function ok(){{
       b.innerHTML='✅&nbsp;&nbsp;已复制！';
       b.style.background='rgba(48,209,88,0.15)';
-      b.style.borderColor='#30d158';
-      b.style.color='#30d158';
+      b.style.borderColor='#30d158';b.style.color='#30d158';
       setTimeout(function(){{
         b.innerHTML='📋&nbsp;&nbsp;{label_copy}';
         b.style.background='';b.style.borderColor='';b.style.color='';
       }},2000);
-    }}).catch(function(){{b.innerHTML='❌&nbsp;复制失败，请长按选择复制';}});
+    }}
+    function legacy(){{
+      var ta=document.createElement('textarea');
+      ta.value=text;ta.style.cssText='position:fixed;top:0;left:0;opacity:1;width:2px;height:2px;font-size:16px;';
+      document.body.appendChild(ta);ta.focus();ta.select();
+      try{{if(document.execCommand('copy')){{ok();}}}}catch(e){{}}
+      document.body.removeChild(ta);
+    }}
+    if(navigator.clipboard){{
+      navigator.clipboard.writeText(text).then(ok).catch(legacy);
+    }}else{{legacy();}}
   }})(this)"
   style="display:block;width:100%;min-height:2.75rem;background:rgba(255,107,107,0.06);border:1.5px solid var(--accent-color,#ff6b6b);border-radius:10px;color:var(--accent-color,#ff6b6b);font-size:14px;font-weight:600;cursor:pointer;padding:0 14px;text-align:left;font-family:inherit;box-sizing:border-box;">📋&nbsp;&nbsp;{label_copy}</button>
 """, unsafe_allow_html=True)
