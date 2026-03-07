@@ -5,8 +5,8 @@ import tempfile
 import json
 from datetime import datetime
 
-# ========== v3.8.1：复制按钮改为原生 HTML clipboard API ==========
-VERSION = "3.8.1"
+# ========== v3.7.2：英文Tab加回可编辑文本框 ==========
+VERSION = "3.7.2"
 
 CONFIG = {
     "version": VERSION,
@@ -752,42 +752,16 @@ def stream_completion(client, messages: list, temperature: float, max_tokens: in
 def show_export_section(content: str, filename: str, label_copy: str, label_dl: str, key: str):
     """
     iOS PWA 安全导出区块：
-    - navigator.clipboard HTML 按钮（直接调用系统剪贴板，iOS PWA / 桌面均可用）
+    - st.code() 右上角原生复制按钮（无 JS，iOS PWA / 桌面均可用）
     - st.download_button 供桌面下载文件
     """
-    import html as _html
-    safe = _html.escape(content, quote=True)
-    st.markdown(f"""
-<button data-content="{safe}"
-  onclick="(function(b){{
-    var text=b.dataset.content;
-    function ok(){{
-      b.innerHTML='✅&nbsp;&nbsp;已复制！';
-      b.style.background='rgba(48,209,88,0.15)';
-      b.style.borderColor='#30d158';b.style.color='#30d158';
-      setTimeout(function(){{
-        b.innerHTML='📋&nbsp;&nbsp;{label_copy}';
-        b.style.background='';b.style.borderColor='';b.style.color='';
-      }},2000);
-    }}
-    function legacy(){{
-      var ta=document.createElement('textarea');
-      ta.value=text;ta.style.cssText='position:fixed;top:0;left:0;opacity:1;width:2px;height:2px;font-size:16px;';
-      document.body.appendChild(ta);ta.focus();ta.select();
-      try{{if(document.execCommand('copy')){{ok();}}}}catch(e){{}}
-      document.body.removeChild(ta);
-    }}
-    if(navigator.clipboard){{
-      navigator.clipboard.writeText(text).then(ok).catch(legacy);
-    }}else{{legacy();}}
-  }})(this)"
-  style="display:block;width:100%;min-height:2.75rem;background:rgba(255,107,107,0.06);border:1.5px solid var(--accent-color,#ff6b6b);border-radius:10px;color:var(--accent-color,#ff6b6b);font-size:14px;font-weight:600;cursor:pointer;padding:0 14px;text-align:left;font-family:inherit;box-sizing:border-box;">📋&nbsp;&nbsp;{label_copy}</button>
-""", unsafe_allow_html=True)
+    st.code(content, language=None)
+    mime = "text/markdown" if filename.endswith(".md") else "text/plain"
     st.download_button(
         label=f"💾 {label_dl}",
         data=content.encode("utf-8"),
         file_name=filename,
-        mime="text/plain",
+        mime=mime,
         use_container_width=True,
         key=f"dl_{key}"
     )
@@ -982,9 +956,9 @@ with col2:
             st.text_area("编辑中文简报", key="zh_edit_content", height=260, label_visibility="collapsed")
             show_export_section(
                 content=st.session_state.get("zh_edit_content", ""),
-                filename=f"简报_{briefing_type}.txt",
+                filename=f"简报_{briefing_type}.md",
                 label_copy="复制全文",
-                label_dl="下载 .txt",
+                label_dl="下载中文版 .md",
                 key="zh"
             )
 
@@ -998,9 +972,9 @@ with col2:
                 st.text_area("编辑英文简报", key="en_edit_content", height=260, label_visibility="collapsed")
                 show_export_section(
                     content=st.session_state.get("en_edit_content", ""),
-                    filename=f"Briefing_{briefing_type}.txt",
+                    filename=f"Briefing_{briefing_type}.md",
                     label_copy="Copy all text",
-                    label_dl="Download .txt",
+                    label_dl="Download English .md",
                     key="en"
                 )
             else:
