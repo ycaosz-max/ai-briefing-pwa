@@ -5,8 +5,8 @@ import tempfile
 import json
 from datetime import datetime
 
-# ========== v3.8.0：下载格式改为 .txt ==========
-VERSION = "3.8.0"
+# ========== v3.8.1：复制按钮改为原生 HTML clipboard API ==========
+VERSION = "3.8.1"
 
 CONFIG = {
     "version": VERSION,
@@ -752,16 +752,32 @@ def stream_completion(client, messages: list, temperature: float, max_tokens: in
 def show_export_section(content: str, filename: str, label_copy: str, label_dl: str, key: str):
     """
     iOS PWA 安全导出区块：
-    - st.code() 右上角原生复制按钮（无 JS，iOS PWA / 桌面均可用）
+    - navigator.clipboard HTML 按钮（直接调用系统剪贴板，iOS PWA / 桌面均可用）
     - st.download_button 供桌面下载文件
     """
-    st.code(content, language=None)
-    mime = "text/markdown" if filename.endswith(".md") else "text/plain"
+    import html as _html
+    safe = _html.escape(content, quote=True)
+    st.markdown(f"""
+<button data-content="{safe}"
+  onclick="(function(b){{
+    navigator.clipboard.writeText(b.dataset.content).then(function(){{
+      b.innerHTML='✅&nbsp;&nbsp;已复制！';
+      b.style.background='rgba(48,209,88,0.15)';
+      b.style.borderColor='#30d158';
+      b.style.color='#30d158';
+      setTimeout(function(){{
+        b.innerHTML='📋&nbsp;&nbsp;{label_copy}';
+        b.style.background='';b.style.borderColor='';b.style.color='';
+      }},2000);
+    }}).catch(function(){{b.innerHTML='❌&nbsp;复制失败，请长按选择复制';}});
+  }})(this)"
+  style="display:block;width:100%;min-height:2.75rem;background:rgba(255,107,107,0.06);border:1.5px solid var(--accent-color,#ff6b6b);border-radius:10px;color:var(--accent-color,#ff6b6b);font-size:14px;font-weight:600;cursor:pointer;padding:0 14px;text-align:left;font-family:inherit;box-sizing:border-box;">📋&nbsp;&nbsp;{label_copy}</button>
+""", unsafe_allow_html=True)
     st.download_button(
         label=f"💾 {label_dl}",
         data=content.encode("utf-8"),
         file_name=filename,
-        mime=mime,
+        mime="text/plain",
         use_container_width=True,
         key=f"dl_{key}"
     )
