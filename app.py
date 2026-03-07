@@ -5,8 +5,8 @@ import tempfile
 import json
 from datetime import datetime
 
-# ========== v3.7.2：英文Tab加回可编辑文本框 ==========
-VERSION = "3.7.2"
+# ========== v3.8.0：下载格式改为 .txt ==========
+VERSION = "3.8.0"
 
 CONFIG = {
     "version": VERSION,
@@ -956,9 +956,9 @@ with col2:
             st.text_area("编辑中文简报", key="zh_edit_content", height=260, label_visibility="collapsed")
             show_export_section(
                 content=st.session_state.get("zh_edit_content", ""),
-                filename=f"简报_{briefing_type}.md",
+                filename=f"简报_{briefing_type}.txt",
                 label_copy="复制全文",
-                label_dl="下载中文版 .md",
+                label_dl="下载 .txt",
                 key="zh"
             )
 
@@ -972,9 +972,9 @@ with col2:
                 st.text_area("编辑英文简报", key="en_edit_content", height=260, label_visibility="collapsed")
                 show_export_section(
                     content=st.session_state.get("en_edit_content", ""),
-                    filename=f"Briefing_{briefing_type}.md",
+                    filename=f"Briefing_{briefing_type}.txt",
                     label_copy="Copy all text",
-                    label_dl="Download English .md",
+                    label_dl="Download .txt",
                     key="en"
                 )
             else:
